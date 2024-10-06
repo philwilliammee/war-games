@@ -4,7 +4,7 @@ import "./style.css";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
-// import { webcontainerInstance } from "./webcontainer-setup";
+import { ollamaService } from "./ollama/ollama.service";
 
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
@@ -28,7 +28,7 @@ const textarea = document.querySelector("textarea");
 
 // the preview window
 const iframe = document.querySelector("iframe");
-const terminalEl = document.querySelector(".terminal");
+const terminalEl = document.querySelector(".terminal") as HTMLElement;
 
 const terminal = new Terminal({
   convertEol: true,
@@ -67,6 +67,12 @@ window.addEventListener("load", async () => {
   });
 
   startDevServer();
+  await ollamaService.initializeChatContext(terminal, webcontainer);
+  const data = await ollamaService.handleChat(
+    "What is the square root of 7?",
+    "llama3.1"
+  );
+  console.log(data);
 });
 
 async function installDependencies() {
@@ -91,7 +97,7 @@ async function startDevServer() {
 
   // wait for `server-ready` event
   webcontainer.on("server-ready", (port, url) => {
-    iframe.src = url;
+    iframe!.src = url;
   });
 }
 
@@ -100,7 +106,7 @@ async function startDevServer() {
  * @param {Terminal} terminal
  * @returns {Promise<void>}
  */
-async function startShell(terminal) {
+async function startShell(terminal: Terminal) {
   const shellProcess = await webcontainer.spawn("jsh", {
     terminal: {
       cols: terminal.cols,

@@ -27,6 +27,7 @@ export class OllamaService {
   /** @type {Message[]} */
   chatContext = [];
   terminal = null;
+  webcontainer = null;
   constructor() {
     // Optionally initialize the chat context
     // this.initializeChatContext();
@@ -36,18 +37,20 @@ export class OllamaService {
    * Initialize chat context from conversation logs.
    * @returns {Promise<void>}
    */
-  async initializeChatContext(terminal) {
+  async initializeChatContext(terminal, webcontainer) {
+    console.log("webcontainer", webcontainer)
     this.terminal = terminal;
+    this.webcontainer = webcontainer;
     console.log("Initializing chat context...", this.terminal);
     try {
       // const [logs] = await conversationLogService.getAllConversationLogs();
-      const logs = [];
-      this.chatContext = logs
-        .map((log) => [
-          { role: "user", content: log.user },
-          { role: "assistant", content: log.assistant },
-        ])
-        .flat();
+      const logs: any[] = [];
+      // this.chatContext = logs
+      //   .map((log) => [
+      //     { role: "user", content: log.user },
+      //     { role: "assistant", content: log.assistant },
+      //   ])
+      //   .flat();
       console.log("Chat context initialized.");
     } catch (error) {
       console.error("Error initializing chat context:", error);
@@ -209,7 +212,8 @@ export class OllamaService {
   }
 
   async executeCommandInWebContainer(command) {
-    if (!window.webcontainerInstance) {
+
+    if (!this.webcontainer) {
       throw new Error("WebContainer is not initialized.");
     }
 
@@ -222,7 +226,7 @@ export class OllamaService {
 
     console.log(`Executing command: ${cmd} with args:`, sanitizedArgs);
     // Spawn the process directly without 'jsh -c'
-    const process = await window.webcontainerInstance.spawn(cmd, sanitizedArgs);
+    const process = await this.webcontainer.spawn(cmd, sanitizedArgs);
     const terminal = this.terminal;
     let output = "";
     process.output.pipeTo(
