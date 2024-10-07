@@ -1,9 +1,9 @@
-// import * as showdown from "showdown";
 // import { conversationLogService } from "./ConversationLog/ConversationLog.service";
 import { Terminal } from "@xterm/xterm";
 import { ollamaClient } from "./ollama.client";
 import { WebContainer } from "@webcontainer/api";
 import { Message } from "ollama";
+import { conversationLogService } from "./ConversationLog/ConversationLog.service";
 
 // Initialize a converter for markdown to HTML conversion
 // const converter = new showdown.Converter();
@@ -42,7 +42,14 @@ export class OllamaService {
     terminal: Terminal,
     webcontainer: WebContainer
   ): Promise<void> {
-    console.log("webcontainer", webcontainer);
+    const [logs] = await conversationLogService.getAllConversationLogs();
+
+    this.chatContext = logs
+      .map((log) => [
+        { role: "user", content: log.user },
+        { role: "assistant", content: log.assistant },
+      ])
+      .flat();
     this.terminal = terminal;
     this.webcontainer = webcontainer;
   }
@@ -66,7 +73,6 @@ export class OllamaService {
         // Execute the command in the WebContainer
         const commandOutput = await this.executeCommandInWebContainer(command);
 
-
         console.log("Command output, before:", commandOutput);
 
         // Provide the command output back to the LLM for explanation
@@ -74,7 +80,10 @@ export class OllamaService {
           ...messages,
           { role: "assistant", content: assistantResponse },
           { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
-          { role: "user", content: `Command output:\n${commandOutput}\nCommand run:\n${command}` },
+          {
+            role: "user", // should this be assistant?
+            content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
+          },
         ];
 
         // Ask the LLM to generate the final answer using the command output
@@ -83,7 +92,6 @@ export class OllamaService {
           updatedMessages,
           userMessage
         );
-
       } else {
         console.log("Disallowed command:", command);
         // Handle disallowed commands
@@ -91,6 +99,12 @@ export class OllamaService {
           "I'm sorry, but I'm not permitted to execute that command.";
       }
     }
+
+    // Store user message and assistant response in chat context
+    this.chatContext.push(userMessage, {
+      role: "assistant",
+      content: assistantResponse,
+    });
 
     return assistantResponse;
   }
@@ -105,15 +119,14 @@ export class OllamaService {
       content: `${now}: ${prompt}`,
     };
 
-    // this.chatContext.push(userMessage);
+    this.chatContext.push(userMessage);
 
     const messages = [
       {
         role: "system",
         content: SYSTEM_CONFIG_MESSAGE,
       },
-      // ...this.chatContext,
-      userMessage,
+      ...this.chatContext,
     ];
 
     return { messages, userMessage };
@@ -132,14 +145,8 @@ export class OllamaService {
       };
       console.log("Assistant response:", assistantMessage.content);
 
-      // this.chatContext.push(assistantMessage);
+      this.chatContext.push(assistantMessage);
 
-      // await this.saveConversationLog(
-      //   userMessage.content,
-      //   chatResponse.message.content
-      // );
-
-      // return converter.makeHtml(chatResponse.message.content);
       return chatResponse.message.content;
     } catch (error) {
       console.error("Error:", error);
@@ -180,13 +187,12 @@ export class OllamaService {
     );
 
     // Wait for the process to exit
-    const exitCode = await process.exit;
+    await process.exit;
 
-    if (exitCode !== 0) {
-      throw new Error(`Command exited with code ${exitCode}`);
-    }
-
-    console.log("ollama.service.executeCommandInWebContainer Command output:", output);
+    console.log(
+      "ollama.service.executeCommandInWebContainer Command output:",
+      output
+    );
     return output.trim();
   }
 }

@@ -32,6 +32,7 @@ body {
   border: solid 1px black;
   height: 100%;
   padding: 8px;
+  min-height: 20vh
 }
 
 #editorInput {
