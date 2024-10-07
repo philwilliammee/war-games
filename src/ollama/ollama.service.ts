@@ -24,6 +24,9 @@ Only use this format when you need to execute a command; otherwise, provide the 
 Note: The runtime does **not** have Python or \`bc\` installed, so avoid using Python or \`bc\` commands.
 `;
 
+export const SYSTEM_EXPLAIN_PROMPT = `
+You have just received the output from executing a command in the runtime environment. Use this output to provide a detailed explanation to the user. Keep the explanation fairly brief and return all answers in markup. Include the actual Node command that was run to generate the output.
+`;
 
 export class OllamaService {
   chatContext: Message[] = [];
@@ -62,16 +65,16 @@ export class OllamaService {
       if (this.isCommandAllowed(command)) {
         // Execute the command in the WebContainer
         const commandOutput = await this.executeCommandInWebContainer(command);
-        const outputEl = document.querySelector(".output");
-        outputEl!.textContent = "The answer is: " + commandOutput;
+
 
         console.log("Command output, before:", commandOutput);
 
-        // Provide the command output back to the LLM
+        // Provide the command output back to the LLM for explanation
         const updatedMessages = [
           ...messages,
           { role: "assistant", content: assistantResponse },
-          { role: "user", content: `Command output:\n${commandOutput}` },
+          { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
+          { role: "user", content: `Command output:\n${commandOutput}\nCommand run:\n${command}` },
         ];
 
         // Ask the LLM to generate the final answer using the command output
@@ -80,6 +83,7 @@ export class OllamaService {
           updatedMessages,
           userMessage
         );
+
       } else {
         console.log("Disallowed command:", command);
         // Handle disallowed commands
@@ -143,9 +147,6 @@ export class OllamaService {
     }
   }
 
-  /**
-   * @type {string} command
-   */
   isCommandAllowed(command: string) {
     return true;
     const nodeCommandPattern =
@@ -177,26 +178,6 @@ export class OllamaService {
         },
       })
     );
-
-    // Collect the command output
-    // const reader = process.output.getReader();
-    // try {
-    //   let result;
-    //   while (!(result = await reader.read()).done) {
-    //     const chunk = result.value; // Should be a string
-    //     console.log("Chunk type:", typeof chunk); // Should output 'string'
-    //     console.log("Chunk:", chunk);
-
-    //     // Append the chunk after stripping ANSI codes
-    //     output += stripAnsiCodes(chunk);
-    //     break;
-    //   }
-    // } catch (error) {
-    //   console.error("Error reading process output:", error);
-    //   throw error;
-    // } finally {
-    //   reader.releaseLock();
-    // }
 
     // Wait for the process to exit
     const exitCode = await process.exit;

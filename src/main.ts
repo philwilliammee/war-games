@@ -8,7 +8,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { ollamaService } from "./ollama/ollama.service";
 import { renderApp } from "./render";
 import { setupTerminal } from "./setupTerminal";
-
+import * as showdown from "showdown";
+// Initialize a converter for markdown to HTML conversion
+const converter = new showdown.Converter();
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
 
@@ -60,7 +62,7 @@ window.addEventListener("load", async () => {
       terminal.write("Analyzing...\r\n"); // Writes to the terminal output
       outputEl.innerHTML = "Analyzing..."; // Writes to the output section
       const data = await ollamaService.handleChat(input, "llama3.1");
-
+      outputEl!.innerHTML = converter.makeHtml(data);
       console.log(data);
     }
   });
