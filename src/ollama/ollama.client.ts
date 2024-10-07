@@ -1,20 +1,13 @@
 // ollama.client.js
-import ollama from "ollama";
+import ollama, {  ChatResponse, Message, Options } from "ollama";
 
 export class OllamaClient {
-  // Method to send a chat request to the Ollama API
-  /**
-   *
-   * @type {ChatRequest} model
-   * @type {Message[]} messages
-   * @type {Options} options
-   * @returns {Promise<ChatResponse>}
-   */
-  async chat(model, messages, options) {
+
+  async chat(model:string , messages: Message[], options: Options): Promise<ChatResponse> {
     try {
       console.log(
         "Sending chat request to Ollama API...messages:",
-        messages.length
+        messages
       );
       const chatResponse = await ollama.chat({
         model,

@@ -1,3 +1,4 @@
+/* style.css - Updated styles */
 * {
   box-sizing: border-box;
 }
@@ -10,33 +11,55 @@ body {
 .container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  /* gap: 4px; */
-  min-height: 60vh;
+  /* min-height: 60vh; */
   height: 100%;
   width: 100%;
+  gap: 2px;
+  padding: 2px;;
+}
+
+#inputText{
+  padding: 8px;
+}
+
+.input {
+  margin-bottom: 10px;
+  height: 100%;
+}
+
+.output {
+  margin-bottom: 10px;
+  border: solid 1px black;
+  height: 100%;
+  padding: 8px;
+}
+
+#editorInput {
+  background-color: black;
+  color:whitesmoke;
+  min-height: 40vh;
 }
 
 textarea {
   width: 100%;
   height: 100%;
   resize: none;
-  /* border-radius: 0.5rem; */
-  background: black;
-  color: white;
-  /* padding: 0.5rem 1rem; */
+  color: black;
+  background: white;
 }
 
 iframe {
   height: 100%;
   width: 100%;
-  /* border-radius: 0.5rem; */
 }
 
 .terminal {
   padding: 2px;
 }
 
-/* .xterm-helper-textarea{
-  height: 20vh;
-  width: 100vw;
-} */
+h2 {
+  margin-bottom: 0;
+  padding: 2px;
+}
+
+

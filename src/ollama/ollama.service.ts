@@ -1,6 +1,9 @@
 // import * as showdown from "showdown";
 // import { conversationLogService } from "./ConversationLog/ConversationLog.service";
+import { Terminal } from "@xterm/xterm";
 import { ollamaClient } from "./ollama.client";
+import { WebContainer } from "@webcontainer/api";
+import { Message } from "ollama";
 
 // Initialize a converter for markdown to HTML conversion
 // const converter = new showdown.Converter();
@@ -21,50 +24,27 @@ Only use this format when you need to execute a command; otherwise, provide the 
 Note: The runtime does **not** have Python or \`bc\` installed, so avoid using Python or \`bc\` commands.
 `;
 
-const MAX_TOKENS = 120000;
 
 export class OllamaService {
-  /** @type {Message[]} */
-  chatContext = [];
-  terminal = null;
-  webcontainer = null;
+  chatContext: Message[] = [];
+  terminal: Terminal | null = null;
+  webcontainer: WebContainer | null = null;
+
   constructor() {
     // Optionally initialize the chat context
     // this.initializeChatContext();
   }
 
-  /**
-   * Initialize chat context from conversation logs.
-   * @returns {Promise<void>}
-   */
-  async initializeChatContext(terminal, webcontainer) {
-    console.log("webcontainer", webcontainer)
+  async initializeChatContext(
+    terminal: Terminal,
+    webcontainer: WebContainer
+  ): Promise<void> {
+    console.log("webcontainer", webcontainer);
     this.terminal = terminal;
     this.webcontainer = webcontainer;
-    console.log("Initializing chat context...", this.terminal);
-    try {
-      // const [logs] = await conversationLogService.getAllConversationLogs();
-      const logs: any[] = [];
-      // this.chatContext = logs
-      //   .map((log) => [
-      //     { role: "user", content: log.user },
-      //     { role: "assistant", content: log.assistant },
-      //   ])
-      //   .flat();
-      console.log("Chat context initialized.");
-    } catch (error) {
-      console.error("Error initializing chat context:", error);
-    }
   }
 
-  /**
-   * Handles chat interaction with the LLM.
-   * @param {string} prompt
-   * @param {string} model
-   * @param {Terminal} terminal
-   * @returns {Promise<string>}
-   */
-  async handleChat(prompt, model) {
+  async handleChat(prompt: string, model: string): Promise<string> {
     const { messages, userMessage } = this.prepareMessages(prompt);
     let assistantResponse = await this.sendChatRequest(
       model,
@@ -83,7 +63,7 @@ export class OllamaService {
         // Execute the command in the WebContainer
         const commandOutput = await this.executeCommandInWebContainer(command);
         const outputEl = document.querySelector(".output");
-        outputEl.textContent = "The answer is: " + commandOutput;
+        outputEl!.textContent = "The answer is: " + commandOutput;
 
         console.log("Command output, before:", commandOutput);
 
@@ -111,48 +91,44 @@ export class OllamaService {
     return assistantResponse;
   }
 
-  /**
-   * Prepares the chat messages for the LLM.
-   * @param {string} prompt
-   * @returns {{ messages: Message[], userMessage: Message }}
-   */
-  prepareMessages(prompt) {
+  prepareMessages(prompt: string): {
+    messages: Message[];
+    userMessage: Message;
+  } {
     const now = new Date().toLocaleTimeString();
     const userMessage = {
       role: "user",
       content: `${now}: ${prompt}`,
     };
 
-    this.chatContext.push(userMessage);
+    // this.chatContext.push(userMessage);
 
     const messages = [
       {
         role: "system",
         content: SYSTEM_CONFIG_MESSAGE,
       },
-      ...this.chatContext,
+      // ...this.chatContext,
+      userMessage,
     ];
 
     return { messages, userMessage };
   }
 
-  /**
-   * Sends a chat request to the LLM and returns the assistant's response.
-   * @param {string} model
-   * @param {Message[]} messages
-   * @param {Message} userMessage
-   * @returns {Promise<string>}
-   */
-  async sendChatRequest(model, messages, userMessage) {
+  async sendChatRequest(
+    model: string,
+    messages: Message[],
+    userMessage: Message
+  ): Promise<string> {
     try {
-      const chatResponse = await ollamaClient.chat(model, messages);
+      const chatResponse = await ollamaClient.chat(model, messages, {});
       const assistantMessage = {
         role: "assistant",
         content: chatResponse.message.content,
       };
       console.log("Assistant response:", assistantMessage.content);
 
-      this.chatContext.push(assistantMessage);
+      // this.chatContext.push(assistantMessage);
 
       // await this.saveConversationLog(
       //   userMessage.content,
@@ -168,61 +144,26 @@ export class OllamaService {
   }
 
   /**
-   * Saves the user-assistant conversation log.
-   * @param {string} userMessageContent
-   * @param {string} assistantMessageContent
-   * @returns {Promise<void>}
-   */
-  // async saveConversationLog(userMessageContent, assistantMessageContent) {
-  //   try {
-  //     const log = {
-  //       user: userMessageContent.slice(0, 1000),
-  //       assistant: assistantMessageContent,
-  //     };
-  //     await conversationLogService.createConversationLog(log);
-  //     console.log("Conversation log saved.");
-  //   } catch (error) {
-  //     console.error("Error saving conversation log:", error);
-  //   }
-  // }
-
-  /**
-   * Trims the chat context to ensure it stays within the maximum token limit.
-   * @returns {void}
-   */
-  trimChatContext() {
-    let totalTokens = countTokens(
-      this.chatContext.map(({ content }) => content).join(" ")
-    );
-
-    while (totalTokens > MAX_TOKENS && this.chatContext.length > 0) {
-      const removedMessage = this.chatContext.shift();
-      totalTokens -= countTokens(removedMessage.content);
-    }
-  }
-
-  /**
    * @type {string} command
    */
-  isCommandAllowed(command) {
+  isCommandAllowed(command: string) {
     return true;
     const nodeCommandPattern =
       /^node\s+-e\s+"console\.log\(Math\.\w+\([\d\s.,]*\)\)"$/;
     return nodeCommandPattern.test(command.trim());
   }
 
-  async executeCommandInWebContainer(command) {
-
+  async executeCommandInWebContainer(command: string) {
     if (!this.webcontainer) {
       throw new Error("WebContainer is not initialized.");
     }
 
     // Parse the command into executable and arguments
     const args = command.match(/"[^"]+"|[^\s]+/g);
-    const cmd = args.shift();
+    const cmd = args!.shift() as string;
 
     // Remove surrounding quotes from arguments
-    const sanitizedArgs = args.map((arg) => arg.replace(/^"|"$/g, ""));
+    const sanitizedArgs = args!.map((arg) => arg.replace(/^"|"$/g, ""));
 
     console.log(`Executing command: ${cmd} with args:`, sanitizedArgs);
     // Spawn the process directly without 'jsh -c'
@@ -232,7 +173,7 @@ export class OllamaService {
     process.output.pipeTo(
       new WritableStream({
         write(data) {
-          terminal.write(data), (output += stripAnsiCodes(data));
+          terminal!.write(data), (output += stripAnsiCodes(data));
         },
       })
     );
@@ -264,24 +205,15 @@ export class OllamaService {
       throw new Error(`Command exited with code ${exitCode}`);
     }
 
-    console.log("Command output:", output);
+    console.log("ollama.service.executeCommandInWebContainer Command output:", output);
     return output.trim();
   }
 }
 
 // Function to strip ANSI escape codes
-function stripAnsiCodes(str) {
+function stripAnsiCodes(str: string) {
   // Regular expression to match ANSI escape codes
   return str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
 }
 
 export const ollamaService = new OllamaService();
-
-/**
- * Counts the number of tokens (words) in a string.
- * @param {string} text
- * @returns {number}
- */
-export function countTokens(text) {
-  return text.split(/\s+/).length;
-}
