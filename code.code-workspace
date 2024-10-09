@@ -22,16 +22,7 @@
     "html.format.enable": true,
     "html.format.wrapLineLength": 80,
     "eslint.nodePath": "./node_modules/eslint/lib/api.js",
-    "cSpell.words": [
-      "ldapts",
-      "linqts",
-      "memorystore",
-      "nguniversal",
-      "Ollama",
-      "Shib",
-      "ssit",
-      "titlecase"
-    ],
+    "cSpell.words": ["Ollama"],
     "[javascript]": {
       "editor.tabSize": 2,
       "editor.formatOnSave": true,
