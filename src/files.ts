@@ -20,7 +20,7 @@ const initializeGameState = async () => {
     currentPlayer: 'X',
     gameOver: false
   };
-  // await fs.writeFile(stateFilePath, JSON.stringify(initialState));
+  return initialState;
 };
 
 // Read game state
@@ -30,7 +30,7 @@ const readGameState = async () => {
     return JSON.parse(data);
   } catch (error) {
     console.error('Error reading game state:', error);
-    return null;
+    return initializeGameState();
   }
 };
 
@@ -78,22 +78,6 @@ const makeMove = async (position) => {
 
   await updateGameState(state);
   return true;
-};
-
-// AI move (simple random move)
-const aiMove = async () => {
-  const state = await readGameState();
-  if (!state || state.gameOver) return;
-
-  const emptyPositions = state.board.reduce((acc, cell, index) => {
-    if (cell === ' ') acc.push(index);
-    return acc;
-  }, []);
-
-  if (emptyPositions.length > 0) {
-    const randomPosition = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
-    await makeMove(randomPosition);
-  }
 };
 
 app.get('/', async (req, res) => {
@@ -201,7 +185,6 @@ app.post('/move', async (req, res) => {
   const { position } = req.body;
   const success = await makeMove(position);
   if (success) {
-    await aiMove(); // AI makes a move after the player
     const newState = await readGameState();
     res.json(newState);
   } else {
@@ -210,12 +193,12 @@ app.post('/move', async (req, res) => {
 });
 
 app.post('/reset', async (req, res) => {
-  await initializeGameState();
+  const initialState = await initializeGameState();
+  await updateGameState(initialState);
   res.json({ message: 'Game reset' });
 });
 
 app.listen(port, async () => {
-  await initializeGameState();
   console.log(\`Tic-Tac-Toe game is live at http://localhost:\${port}\`);
 });`,
     },
