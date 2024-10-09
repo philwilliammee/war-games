@@ -20,9 +20,12 @@ Only use this format when you need to execute a command; otherwise, provide the 
 Note: The runtime does **not** have Python or \`bc\` installed, so avoid using Python or \`bc\` commands.
 
 For the Tic-Tac-Toe game:
-- To make a move, use: [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ position: <0-8> }) }).then(res => res.json()).then(console.log)"]]
-- To get the current game state: [[execute: node -e "fetch('http://localhost:3111').then(res => res.text()).then(console.log)"]]
-- To reset the game: [[execute: node -e "fetch('http://localhost:3111/reset', { method: 'POST' }).then(res => res.json()).then(console.log)"]]
+1. First, get the current game state: [[execute: node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(console.log)"]]
+2. After receiving the game state, analyze it and determine your next move.
+3. Then, make your move: [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ position: <0-8> }) }).then(res => res.json()).then(console.log)"]]
+
+Your goal is to win the game. Always check the current state before making a move. Choose moves strategically to win or block the opponent from winning.
+When the game is over you can reset and start again: [[execute: node -e "fetch('http://localhost:3111/reset', { method: 'POST' }).then(res => res.json()).then(console.log)"]]
 `;
 
 export const SYSTEM_EXPLAIN_PROMPT = `
@@ -30,9 +33,11 @@ You have just received the output from executing a command in the runtime enviro
 
 For Tic-Tac-Toe game interactions:
 - Explain the current state of the game board.
-- Mention whose turn it is (X or O).
+- You should always be player X, unless specifically overridden by the user.
 - If the game is over, announce the winner or if it's a tie.
-- Suggest the next move or ask the user for their move.
+- If it's the AI's turn, explain your strategy for the next move and include the move command.
+- If it's the user's turn, ask them to make a move by specifying a position (0-8).
+- Remember the first position (0) is the top-left corner and the last position is the bottom-right corner(8).
 `;
 
 export class OllamaService {
@@ -88,7 +93,7 @@ export class OllamaService {
           { role: "assistant", content: assistantResponse },
           { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
           {
-            role: "user", // should this be assistant?
+            role: "user",
             content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
           },
         ];
@@ -99,6 +104,34 @@ export class OllamaService {
           updatedMessages,
           userMessage
         );
+
+        // If this was a state fetch, we need to make a move
+        if (command.includes("http://localhost:3111/state")) {
+          const moveMatch = assistantResponse.match(/\[\[execute: (.+?)\]\]/);
+          if (moveMatch) {
+            const moveCommand = moveMatch[1].trim();
+            const moveOutput = await this.executeCommandInWebContainer(
+              moveCommand
+            );
+
+            // Provide the move output back to the LLM for final explanation
+            const finalMessages = [
+              ...updatedMessages,
+              { role: "assistant", content: assistantResponse },
+              { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
+              {
+                role: "user",
+                content: `Command output:\n${moveOutput}\nCommand run:\n${moveCommand}`,
+              },
+            ];
+
+            assistantResponse = await this.sendChatRequest(
+              model,
+              finalMessages,
+              userMessage
+            );
+          }
+        }
       } else {
         console.log("Disallowed command:", command);
         // Handle disallowed commands
@@ -163,8 +196,8 @@ export class OllamaService {
 
   isCommandAllowed(command: string) {
     const allowedCommands = [
+      /^node -e "fetch\('http:\/\/localhost:3111\/state'\).+"/,
       /^node -e "fetch\('http:\/\/localhost:3111\/move'.+\)"/,
-      /^node -e "fetch\('http:\/\/localhost:3111'\).+"/,
       /^node -e "fetch\('http:\/\/localhost:3111\/reset'.+\)"/,
       /^node\s+-e\s+"console\.log\(Math\.\w+\([\d\s.,]*\)\)"$/,
     ];
