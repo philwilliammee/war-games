@@ -1,8 +1,6 @@
 /* style.css - Updated styles */
 * {
   box-sizing: border-box;
-  font-size: 16px;
-  font-family: Arial, sans-serif;
 }
 
 body {
@@ -10,6 +8,10 @@ body {
   min-height: 100vh;
 }
 
+input, textarea {
+  font-size: 16px;
+
+}
 .container {
   display: grid;
   grid-template-columns: 1fr 1fr;

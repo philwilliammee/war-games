@@ -1,12 +1,9 @@
-// import { conversationLogService } from "./ConversationLog/ConversationLog.service";
+// Import necessary modules
 import { Terminal } from "@xterm/xterm";
 import { ollamaClient } from "./ollama.client";
 import { WebContainer } from "@webcontainer/api";
 import { Message } from "ollama";
 import { conversationLogService } from "./ConversationLog/ConversationLog.service";
-
-// Initialize a converter for markdown to HTML conversion
-// const converter = new showdown.Converter();
 
 export const MODEL_OPTION = "llama3.1";
 
@@ -16,6 +13,11 @@ You are an LLM that has access to a web container runtime. The runtime supports 
 When you need to execute a command to answer the user's question, output it in the following format exactly: [[execute: <command>]].
 
 - For mathematical calculations, use Node.js commands like \`node -e "console.log(Math.sqrt(7))"\`.
+- To start or interact with the Tic-Tac-Toe game, use the following commands:
+  - To start the game server: [[execute: npm install && npm run dev]]
+  - To make a move: [[execute: curl -X POST -H "Content-Type: application/json" -d '{"position": <0-8>}' http://localhost:3111/move]]
+  - To get the current game state: [[execute: curl http://localhost:3111]]
+  - To reset the game: [[execute: curl -X POST http://localhost:3111/reset]]
 
 Do not include any additional output or explanation in the command. Only output the command in the specified format.
 
@@ -25,7 +27,13 @@ Note: The runtime does **not** have Python or \`bc\` installed, so avoid using P
 `;
 
 export const SYSTEM_EXPLAIN_PROMPT = `
-You have just received the output from executing a command in the runtime environment. Use this output to provide a detailed explanation to the user. Keep the explanation fairly brief and return all answers in markup. Include the actual Node command that was run to generate the output.
+You have just received the output from executing a command in the runtime environment. Use this output to provide a detailed explanation to the user. Keep the explanation fairly brief and return all answers in markup. Include the actual command that was run to generate the output.
+
+For Tic-Tac-Toe game interactions:
+- Explain the current state of the game board.
+- Mention whose turn it is (X or O).
+- If the game is over, announce the winner or if it's a tie.
+- Suggest the next move or ask the user for their move.
 `;
 
 export class OllamaService {
@@ -35,7 +43,6 @@ export class OllamaService {
 
   constructor() {
     // Optionally initialize the chat context
-    // this.initializeChatContext();
   }
 
   async initializeChatContext(
@@ -81,7 +88,7 @@ export class OllamaService {
           { role: "assistant", content: assistantResponse },
           { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
           {
-            role: "user", // should this be assistant?
+            role: "user",
             content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
           },
         ];
@@ -94,7 +101,6 @@ export class OllamaService {
         );
       } else {
         console.log("Disallowed command:", command);
-        // Handle disallowed commands
         assistantResponse =
           "I'm sorry, but I'm not permitted to execute that command.";
       }
@@ -155,10 +161,15 @@ export class OllamaService {
   }
 
   isCommandAllowed(command: string) {
-    return true;
-    const nodeCommandPattern =
-      /^node\s+-e\s+"console\.log\(Math\.\w+\([\d\s.,]*\)\)"$/;
-    return nodeCommandPattern.test(command.trim());
+    const allowedCommands = [
+      /^npm install && npm run dev$/,
+      /^curl -X POST -H "Content-Type: application\/json" -d '\{"position": \d\}' http:\/\/localhost:3111\/move$/,
+      /^curl http:\/\/localhost:3111$/,
+      /^curl -X POST http:\/\/localhost:3111\/reset$/,
+      /^node\s+-e\s+"console\.log\(Math\.\w+\([\d\s.,]*\)\)"$/,
+    ];
+
+    return allowedCommands.some((pattern) => pattern.test(command.trim()));
   }
 
   async executeCommandInWebContainer(command: string) {
