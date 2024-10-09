@@ -1,11 +1,13 @@
 /* style.css - Updated styles */
 * {
   box-sizing: border-box;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
 }
 
 body {
   margin: 0;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 .container {
