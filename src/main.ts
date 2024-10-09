@@ -31,8 +31,9 @@ window.addEventListener("load", async () => {
   }
   textarea.value = files["index.js"].file.contents;
 
-  textarea.addEventListener("input", (event: any) => {
-    const content = event.currentTarget.value || "";
+  textarea.addEventListener("input", (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const content = target.value || "";
     webcontainer.fs.writeFile("/index.js", content);
   });
 
@@ -66,8 +67,6 @@ window.addEventListener("load", async () => {
       console.log(data);
     }
   });
-
-
 });
 
 async function startDevServer() {
