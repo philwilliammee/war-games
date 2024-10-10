@@ -1,10 +1,10 @@
+import { ollamaClient } from "./ollama/ollama.client";
 import { Terminal } from "@xterm/xterm";
-import { ollamaClient } from "./ollama.client";
 import { WebContainer } from "@webcontainer/api";
 import { Message } from "ollama";
 import { conversationLogService } from "./ConversationLog/ConversationLog.service";
-
-export const MODEL_OPTION = "llama3.1";
+import { bedrockClient } from "./bedrock/bedrock.service";
+const PLATFORM = import.meta.env.VITE_PLATFORM;
 
 export const SYSTEM_CONFIG_MESSAGE = `
 You are an LLM that has access to a web container runtime. The runtime supports basic shell commands and a Node.js environment.
@@ -40,7 +40,7 @@ For Tic-Tac-Toe game interactions:
 - Remember the first position (0) is the top-left corner and the last position is the bottom-right corner(8).
 `;
 
-export class OllamaService {
+export class ModelService {
   chatContext: Message[] = [];
   terminal: Terminal | null = null;
   webcontainer: WebContainer | null = null;
@@ -66,87 +66,69 @@ export class OllamaService {
     this.webcontainer = webcontainer;
   }
 
-  async handleChat(prompt: string, model: string): Promise<string> {
+  async handleChat(prompt: string): Promise<string> {
     const { messages, userMessage } = this.prepareMessages(prompt);
-    let assistantResponse = await this.sendChatRequest(
-      model,
-      messages,
-      userMessage
-    );
+    const assistantResponse = await this.sendChatRequest(messages, userMessage);
 
-    // Check if the assistant's response contains a command execution request
-    const commandMatch = assistantResponse.match(/\[\[execute: (.+?)\]\]/);
+    console.log("assistantResponse", assistantResponse);
 
-    if (commandMatch) {
-      const command = commandMatch[1].trim();
+    let finalAssistantResponse = assistantResponse;
+    let commandMatches = [
+      ...assistantResponse.matchAll(/\[\[execute: (.+?)\]\]/g),
+    ];
+    let commandCount = 0;
 
-      // Validate the command (implement validation as needed)
-      if (this.isCommandAllowed(command)) {
-        // Execute the command in the WebContainer
-        const commandOutput = await this.executeCommandInWebContainer(command);
-
-        console.log("Command output, before:", commandOutput);
-
-        // Provide the command output back to the LLM for explanation
-        const updatedMessages = [
-          ...messages,
-          { role: "assistant", content: assistantResponse },
-          { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
-          {
-            role: "user",
-            content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
-          },
-        ];
-
-        // Ask the LLM to generate the final answer using the command output
-        assistantResponse = await this.sendChatRequest(
-          model,
-          updatedMessages,
-          userMessage
-        );
-
-        // If this was a state fetch, we need to make a move
-        if (command.includes("http://localhost:3111/state")) {
-          const moveMatch = assistantResponse.match(/\[\[execute: (.+?)\]\]/);
-          if (moveMatch) {
-            const moveCommand = moveMatch[1].trim();
-            const moveOutput = await this.executeCommandInWebContainer(
-              moveCommand
-            );
-
-            // Provide the move output back to the LLM for final explanation
-            const finalMessages = [
-              ...updatedMessages,
-              { role: "assistant", content: assistantResponse },
-              { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
-              {
-                role: "user",
-                content: `Command output:\n${moveOutput}\nCommand run:\n${moveCommand}`,
-              },
-            ];
-
-            assistantResponse = await this.sendChatRequest(
-              model,
-              finalMessages,
-              userMessage
-            );
-          }
+    while (commandMatches.length > 0 && commandCount < 5) {
+      for (const match of commandMatches) {
+        if (commandCount >= 5) {
+          break;
         }
-      } else {
-        console.log("Disallowed command:", command);
-        // Handle disallowed commands
-        assistantResponse =
-          "I'm sorry, but I'm not permitted to execute that command.";
+        const command = match[1].trim();
+
+        // Validate the command (implement validation as needed)
+        if (this.isCommandAllowed(command)) {
+          // Execute the command in the WebContainer
+          const commandOutput = await this.executeCommandInWebContainer(
+            command
+          );
+          commandCount++;
+
+          // Update the messages with the command output and ask for explanation
+          const updatedMessages = [
+            ...messages,
+            { role: "assistant", content: finalAssistantResponse },
+            { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
+            {
+              role: "user",
+              content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
+            },
+          ];
+
+          // Get an updated response from the model based on the command output
+          finalAssistantResponse = await this.sendChatRequest(
+            updatedMessages,
+            userMessage
+          );
+        } else {
+          console.log("Disallowed command:", command);
+          // Handle disallowed commands
+          finalAssistantResponse =
+            "I'm sorry, but I'm not permitted to execute that command.";
+          break;
+        }
       }
+      commandMatches = [
+        ...finalAssistantResponse.matchAll(/\[\[execute: (.+?)\]\]/g),
+      ];
     }
 
-    // Store user message and assistant response in chat context
+    // Store user message and final assistant response in chat context
     this.chatContext.push(userMessage, {
       role: "assistant",
-      content: assistantResponse,
+      content: finalAssistantResponse,
     });
 
-    return assistantResponse;
+    return finalAssistantResponse;
   }
 
   prepareMessages(prompt: string): {
@@ -173,21 +155,30 @@ export class OllamaService {
   }
 
   async sendChatRequest(
-    model: string,
     messages: Message[],
     userMessage: Message
   ): Promise<string> {
+    const model = PLATFORM;
     try {
-      const chatResponse = await ollamaClient.chat(model, messages, {});
-      const assistantMessage = {
-        role: "assistant",
-        content: chatResponse.message.content,
-      };
-      console.log("Assistant response:", assistantMessage.content);
-
-      this.chatContext.push(assistantMessage);
-
-      return chatResponse.message.content;
+      if (model === "bedrock") {
+        const chatResponse = await bedrockClient.chat(messages, {
+          temperature: 0.7,
+        });
+        const assistantMessage = {
+          role: "assistant",
+          content: chatResponse,
+        };
+        this.chatContext.push(assistantMessage);
+        return chatResponse;
+      } else {
+        const chatResponse = await ollamaClient.chat(model, messages, {});
+        const assistantMessage = {
+          role: "assistant",
+          content: chatResponse.message.content,
+        };
+        this.chatContext.push(assistantMessage);
+        return chatResponse.message.content;
+      }
     } catch (error) {
       console.error("Error:", error);
       throw new Error("An error occurred while processing the chat request.");
@@ -195,6 +186,7 @@ export class OllamaService {
   }
 
   isCommandAllowed(command: string) {
+    return true; // Allow all commands for now in the WebContainer @todo: Implement command validation!
     const allowedCommands = [
       /^node -e "fetch\('http:\/\/localhost:3111\/state'\).+"/,
       /^node -e "fetch\('http:\/\/localhost:3111\/move'.+\)"/,
@@ -244,7 +236,7 @@ export class OllamaService {
 // Function to strip ANSI escape codes
 function stripAnsiCodes(str: string) {
   // Regular expression to match ANSI escape codes
-  return str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
+  return str.replace(/\x1B\[[0-?]*[ -\/]*[@-~]/g, "");
 }
 
-export const ollamaService = new OllamaService();
+export const modelService = new ModelService();

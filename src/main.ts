@@ -5,7 +5,7 @@ import "./style.css";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
-import { ollamaService } from "./ollama/ollama.service";
+import { modelService } from "./model/model.service";
 import { renderApp } from "./render";
 import { setupTerminal } from "./setupTerminal";
 import * as showdown from "showdown";
@@ -50,7 +50,7 @@ window.addEventListener("load", async () => {
   });
 
   startDevServer();
-  await ollamaService.initializeChatContext(terminal, webcontainer);
+  await modelService.initializeChatContext(terminal, webcontainer);
 
   inputEl!.addEventListener("keyup", async (event: KeyboardEvent) => {
     if (event.key === "Enter") {
@@ -62,9 +62,8 @@ window.addEventListener("load", async () => {
       // Alternatively, update the DOM if you want to show this in a specific place, e.g., terminal or output section
       terminal.write("Analyzing...\r\n"); // Writes to the terminal output
       outputEl.innerHTML = "Analyzing..."; // Writes to the output section
-      const data = await ollamaService.handleChat(input, "llama3.1");
+      const data = await modelService.handleChat(input);
       outputEl!.innerHTML = converter.makeHtml(data);
-      console.log(data);
     }
   });
 });
