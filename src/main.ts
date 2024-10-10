@@ -9,11 +9,12 @@ import { modelService } from "./model/model.service";
 import { renderApp } from "./render";
 import { setupTerminal } from "./setupTerminal";
 import * as showdown from "showdown";
-// Initialize a converter for markdown to HTML conversion
+
 const converter = new showdown.Converter();
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
 
+// Do these in order
 renderApp();
 
 // add references to DOM elements
@@ -22,7 +23,6 @@ const iframe = document.querySelector("iframe");
 const terminalEl = document.querySelector(".terminal") as HTMLElement;
 const inputEl = document.querySelector("#inputText") as HTMLTextAreaElement;
 const outputEl = document.querySelector(".output") as HTMLElement;
-
 const terminal = setupTerminal(terminalEl, fitAddon);
 
 window.addEventListener("load", async () => {
@@ -55,15 +55,8 @@ window.addEventListener("load", async () => {
   inputEl!.addEventListener("keyup", async (event: KeyboardEvent) => {
     if (event.key === "Enter") {
       const input = inputEl.value;
-
-      // Log or update DOM to show "Analyzing..." immediately after keypress
-      console.log("Analyzing...");
-
-      // Alternatively, update the DOM if you want to show this in a specific place, e.g., terminal or output section
-      terminal.write("Analyzing...\r\n"); // Writes to the terminal output
-      outputEl.innerHTML = "Analyzing..."; // Writes to the output section
-      const data = await modelService.handleChat(input);
-      outputEl!.innerHTML = converter.makeHtml(data);
+      outputEl.textContent = "analyzing...";
+      modelService.handleChat(input);
     }
   });
 });
@@ -96,4 +89,11 @@ async function startShell(terminal: Terminal) {
   });
 
   return shellProcess;
+}
+
+export function renderOutput(output: string) {
+  // add a horizontal line to separate the output and add the new output to the top of the stack.
+  const newOutput = converter.makeHtml(output);
+  const oldOutput = outputEl.innerHTML.replace("analyzing...", "");
+  outputEl.innerHTML = newOutput + "<hr />" + oldOutput;
 }

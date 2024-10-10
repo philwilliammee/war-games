@@ -4,6 +4,9 @@ import { WebContainer } from "@webcontainer/api";
 import { Message } from "ollama";
 import { conversationLogService } from "./ConversationLog/ConversationLog.service";
 import { bedrockClient } from "./bedrock/bedrock.service";
+import { renderOutput } from "../main";
+// Initialize a converter for markdown to HTML conversion
+
 const PLATFORM = import.meta.env.VITE_PLATFORM;
 
 export const SYSTEM_CONFIG_MESSAGE = `
@@ -11,7 +14,7 @@ You are an LLM that has access to a web container runtime. The runtime supports 
 
 When you need to execute a command to answer the user's question, output it in the following format exactly: [[execute: <command>]].
 
-- For mathematical calculations, use Node.js commands like \`node -e "console.log(Math.sqrt(7))"\`.
+For mathematical calculations, use Node.js commands like \`node -e "console.log(Math.sqrt(7))"\`.
 
 Do not include any additional output or explanation in the command. Only output the command in the specified format.
 
@@ -24,8 +27,17 @@ For the Tic-Tac-Toe game:
 2. After receiving the game state, analyze it and determine your next move.
 3. Then, make your move: [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ position: <0-8> }) }).then(res => res.json()).then(console.log)"]]
 
-Your goal is to win the game. Always check the current state before making a move. Choose moves strategically to win or block the opponent from winning.
-When the game is over you can reset and start again: [[execute: node -e "fetch('http://localhost:3111/reset', { method: 'POST' }).then(res => res.json()).then(console.log)"]]
+Your goal is to win the game while prioritizing defensive play. Always check the current state before making a move. Follow these guidelines:
+
+1. Defense First: Always check if the opponent has any immediate winning moves. Block these moves as your top priority.
+2. Win if Possible: If you have an immediate winning move and there's no urgent defensive need, take it.
+3. Strategic Defense: Look for moves that simultaneously block multiple potential winning lines for the opponent.
+4. Controlled Offense: Create opportunities for yourself, but not at the expense of leaving critical defensive positions open.
+5. Center Control: If the center is available and there's no immediate threat, consider taking it as it offers good offensive and defensive options.
+6. Corner Preference: In the absence of immediate threats or opportunities, prefer corners over edge positions.
+7. Balanced Play: Remember the key importance of balanced play - always consider both offensive opportunities and defensive necessities equally.";
+
+Remember, a good defense often leads to offensive opportunities. Balance your strategy accordingly.
 `;
 
 export const SYSTEM_EXPLAIN_PROMPT = `
@@ -69,6 +81,7 @@ export class ModelService {
   async handleChat(prompt: string): Promise<string> {
     const { messages, userMessage } = this.prepareMessages(prompt);
     const assistantResponse = await this.sendChatRequest(messages, userMessage);
+    renderOutput(assistantResponse);
 
     console.log("assistantResponse", assistantResponse);
 
@@ -109,11 +122,13 @@ export class ModelService {
             updatedMessages,
             userMessage
           );
+          renderOutput(finalAssistantResponse);
         } else {
           console.log("Disallowed command:", command);
           // Handle disallowed commands
           finalAssistantResponse =
             "I'm sorry, but I'm not permitted to execute that command.";
+          renderOutput(finalAssistantResponse);
           break;
         }
       }
