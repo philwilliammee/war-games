@@ -7,11 +7,11 @@ import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
 import { renderApp, getElements, renderEditor, renderTerminal } from "./render";
 import { setupTerminal } from "./setupTerminal";
-import * as showdown from "showdown";
+// import * as showdown from "showdown";
 import { modelService } from "./model/model.service";
 
 // Initialize a converter for markdown to HTML conversion
-const converter = new showdown.Converter();
+// const converter = new showdown.Converter();
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
 
@@ -46,22 +46,6 @@ window.addEventListener("load", async () => {
 
   startDevServer();
   await modelService.initializeChatContext(terminal, webcontainer);
-
-  elements.inputEl!.addEventListener("keyup", async (event: KeyboardEvent) => {
-    if (event.key === "Enter") {
-      const input = elements.inputEl.value;
-
-      // Log or update DOM to show "Analyzing..." immediately after keypress
-      console.log("Analyzing...");
-
-      // Alternatively, update the DOM if you want to show this in a specific place, e.g., terminal or output section
-      terminal.write("Analyzing...\r\n"); // Writes to the terminal output
-      elements.outputEl.innerHTML = "Analyzing..."; // Writes to the output section
-      const data = await modelService.handleChat(input);
-      elements.outputEl!.innerHTML = converter.makeHtml(data);
-      console.log(data);
-    }
-  });
 });
 
 async function startDevServer() {

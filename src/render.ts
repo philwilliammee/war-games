@@ -1,4 +1,8 @@
 // render.ts - Responsible for rendering the HTML layout and elements
+import { modelService } from "./model/model.service";
+import * as showdown from "showdown";
+
+const converter = new showdown.Converter();
 
 interface Elements {
   textarea: HTMLTextAreaElement;
@@ -6,6 +10,7 @@ interface Elements {
   terminalEl: HTMLElement;
   inputEl: HTMLTextAreaElement;
   outputEl: HTMLElement;
+  sendButton: HTMLButtonElement;
 }
 
 export function renderApp() {
@@ -22,14 +27,16 @@ export function renderApp() {
       </div>
       <div class="right-column">
         <div class="mode-toggle">
-          <button id="editButton" class="active">Edit</button>
-          <button id="previewButton">Preview</button>
+          <button id="editButton" >Edit</button>
+          <button id="previewButton" class="active">Preview</button>
         </div>
         <div class="editor-container">
-          <div class="editor">
+          <div class="editor" style="display: none;">
             <textarea id="editorInput"></textarea>
           </div>
-          <div class="preview" style="display: none;">
+          <div class="preview" style="margin: auto; text-align: center;">
+            <h2>Welcome to War Games!</h2>
+            <p>To get started, run the following command in the terminal: <pre>npm i && npm start</pre></p>
             <iframe></iframe>
           </div>
         </div>
@@ -39,6 +46,7 @@ export function renderApp() {
   `;
 
   setupModeToggle();
+  setupChatHandlers();
 }
 
 export function getElements(): Elements {
@@ -48,6 +56,7 @@ export function getElements(): Elements {
     terminalEl: document.querySelector(".terminal") as HTMLElement,
     inputEl: document.querySelector("#inputText") as HTMLTextAreaElement,
     outputEl: document.querySelector(".ai-output") as HTMLElement,
+    sendButton: document.querySelector("#sendButton") as HTMLButtonElement,
   };
 }
 
@@ -70,7 +79,11 @@ export function renderTerminal(content: string) {
 export function renderAiOutput(content: string) {
   const outputEl = document.querySelector(".ai-output") as HTMLElement;
   if (outputEl) {
-    outputEl.innerHTML = content;
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message ai-message";
+    messageDiv.innerHTML = converter.makeHtml(content);
+    outputEl.appendChild(messageDiv);
+    outputEl.scrollTop = outputEl.scrollHeight;
   }
 }
 
@@ -92,5 +105,46 @@ function setupModeToggle() {
     editButton?.classList.remove("active");
     previewContainer?.setAttribute("style", "display: block;");
     editorContainer?.setAttribute("style", "display: none;");
+  });
+}
+
+function setupChatHandlers() {
+  const elements = getElements();
+
+  async function handleChatInput() {
+    const input = elements.inputEl.value.trim();
+    if (input) {
+      elements.inputEl.value = "";
+      appendUserMessage(input);
+      try {
+        await modelService.handleChat(input);
+      } catch (error) {
+        console.error("Error handling chat:", error);
+        renderAiOutput("An error occurred while processing your request.");
+      }
+    }
+  }
+
+  function appendUserMessage(message: string) {
+    const outputEl = document.querySelector(".ai-output") as HTMLElement;
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message user-message";
+    messageDiv.innerHTML = `
+      <div class="avatar">👤</div>
+      <div class="content">${converter.makeHtml(message)}</div>
+    `;
+    outputEl.appendChild(messageDiv);
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  elements.inputEl.addEventListener("keyup", async (event: KeyboardEvent) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      await handleChatInput();
+    }
+  });
+
+  elements.sendButton.addEventListener("click", async () => {
+    await handleChatInput();
   });
 }
