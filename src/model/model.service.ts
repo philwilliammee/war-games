@@ -4,10 +4,11 @@ import { WebContainer } from "@webcontainer/api";
 import { Message } from "ollama";
 import { conversationLogService } from "./ConversationLog/ConversationLog.service";
 import { bedrockClient } from "./bedrock/bedrock.service";
-import { renderOutput } from "../main";
+import { renderAiOutput } from "../render";
 // Initialize a converter for markdown to HTML conversion
 
 const PLATFORM = import.meta.env.VITE_PLATFORM;
+const MODEL = import.meta.env.VITE_MODEL;
 
 export const SYSTEM_CONFIG_MESSAGE = `
 You are an LLM that has access to a web container runtime. The runtime supports basic shell commands and a Node.js environment.
@@ -81,7 +82,7 @@ export class ModelService {
   async handleChat(prompt: string): Promise<string> {
     const { messages, userMessage } = this.prepareMessages(prompt);
     const assistantResponse = await this.sendChatRequest(messages, userMessage);
-    renderOutput(assistantResponse);
+    renderAiOutput(assistantResponse);
 
     console.log("assistantResponse", assistantResponse);
 
@@ -122,13 +123,13 @@ export class ModelService {
             updatedMessages,
             userMessage
           );
-          renderOutput(finalAssistantResponse);
+          renderAiOutput(finalAssistantResponse);
         } else {
           console.log("Disallowed command:", command);
           // Handle disallowed commands
           finalAssistantResponse =
             "I'm sorry, but I'm not permitted to execute that command.";
-          renderOutput(finalAssistantResponse);
+          renderAiOutput(finalAssistantResponse);
           break;
         }
       }
@@ -173,9 +174,9 @@ export class ModelService {
     messages: Message[],
     userMessage: Message
   ): Promise<string> {
-    const model = PLATFORM;
+    const platform = PLATFORM;
     try {
-      if (model === "bedrock") {
+      if (platform === "bedrock") {
         const chatResponse = await bedrockClient.chat(messages, {
           temperature: 0.7,
         });
@@ -186,7 +187,7 @@ export class ModelService {
         this.chatContext.push(assistantMessage);
         return chatResponse;
       } else {
-        const chatResponse = await ollamaClient.chat(model, messages, {});
+        const chatResponse = await ollamaClient.chat(MODEL, messages, {});
         const assistantMessage = {
           role: "assistant",
           content: chatResponse.message.content,

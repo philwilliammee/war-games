@@ -1,73 +1,119 @@
 /* style.css - Updated styles */
 * {
   box-sizing: border-box;
+  font-size: 16px;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
+  padding: 0;
+  height: 100vh;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
 }
 
-input, textarea {
-  font-size: 16px;
-
+.main-container {
+  display: flex;
+  height: 100vh;
 }
-.container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  /* min-height: 60vh; */
+
+.left-column {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #333;
+}
+
+.right-column {
+  width: 60%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
   height: 100%;
+}
+
+.ai-output {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #252526;
+}
+
+.user-input {
+  padding: 10px;
+  background-color: #2d2d2d;
+}
+
+#inputText {
   width: 100%;
-  gap: 2px;
-  padding: 2px;;
+  height: 80px;
+  resize: none;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  border: 1px solid #333;
+  padding: 5px;
 }
 
-#inputText{
-  padding: 8px;
+#sendButton {
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #0e639c;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
 
-.input {
-  margin-bottom: 10px;
+.mode-toggle {
+  display: flex;
+  background-color: #252526;
+  padding: 5px;
+}
+
+.mode-toggle button {
+  padding: 5px 10px;
+  background-color: #2d2d2d;
+  color: #d4d4d4;
+  border: none;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.mode-toggle button.active {
+  background-color: #0e639c;
+}
+
+.editor-container {
+  flex-grow: 1;
+  display: flex;
+}
+
+.editor, .preview {
+  width: 100%;
   height: 100%;
-  max-height: 400px;
-}
-
-.output {
-  margin-bottom: 10px;
-  border: solid 1px black;
-  height: 100%;
-  padding: 8px;
-  min-height: 20vh;
-  max-height: 400px;
-  overflow-y: scroll;
 }
 
 #editorInput {
-  background-color: black;
-  color:whitesmoke;
-  min-height: 40vh;
-}
-
-textarea {
   width: 100%;
   height: 100%;
   resize: none;
-  color: black;
-  background: white;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  border: none;
+  padding: 10px;
 }
 
 iframe {
-  height: 100%;
   width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .terminal {
-  padding: 2px;
+  height: 200px;
+  background-color: #1e1e1e;
+  border-top: 1px solid #333;
 }
-
-h2 {
-  margin-bottom: 0;
-  padding: 2px;
-}
-
-
