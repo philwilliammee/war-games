@@ -109,7 +109,7 @@ export class BedrockClient {
             messages: [
               {
                 role: "user",
-                content: [{ type: "text", text: encodeURI(userPrompt) }],
+                content: [{ type: "text", text: userPrompt }],
               },
             ],
           };

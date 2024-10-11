@@ -6,6 +6,7 @@ import { conversationLogService } from "./ConversationLog/ConversationLog.servic
 import { bedrockClient } from "./bedrock/bedrock.service";
 import { renderAiOutput } from "../render";
 // Initialize a converter for markdown to HTML conversion
+// @todo instead of having the llm fetch the game state every round I fetch it and add it tot he prompt.
 
 const PLATFORM = import.meta.env.VITE_PLATFORM;
 const MODEL = import.meta.env.VITE_MODEL;
@@ -24,9 +25,20 @@ Only use this format when you need to execute a command; otherwise, provide the 
 Note: The runtime does **not** have Python or \`bc\` installed, so avoid using Python or \`bc\` commands.
 
 For the Tic-Tac-Toe game:
-1. First, get the current game state: [[execute: node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(console.log)"]]
+1. First, get the current game state:
+
+    [[execute: node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(console.log)"]]
+
 2. After receiving the game state, analyze it and determine your next move.
-3. Then, make your move: [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ position: <0-8> }) }).then(res => res.json()).then(console.log)"]]
+3. Then, make your move:
+
+   [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ position: <0-8> })}).then(res => res.json()).then(console.log)"]]
+
+
+You can also reset the game state by running:
+
+  [[execute: node -e "fetch('http://localhost:3111/reset', { method: 'POST' }).then(res => res.json()).then(console.log)"]]
+
 
 Your goal is to win the game while prioritizing defensive play. Always check the current state before making a move. Follow these guidelines:
 
@@ -39,19 +51,27 @@ Your goal is to win the game while prioritizing defensive play. Always check the
 7. Balanced Play: Remember the key importance of balanced play - always consider both offensive opportunities and defensive necessities equally.";
 
 Remember, a good defense often leads to offensive opportunities. Balance your strategy accordingly.
-`;
 
-export const SYSTEM_EXPLAIN_PROMPT = `
-You have just received the output from executing a command in the runtime environment. Use this output to provide a detailed explanation to the user. Keep the explanation fairly brief and return all answers in markup. Include the actual Node command that was run to generate the output.
+
+If You ever: receive a message like: Command output:\n\${commandOutput}\nCommand run:\n\${command}
+You have just received the output from executing a command in the runtime environment.
 
 For Tic-Tac-Toe game interactions:
-- Explain the current state of the game board.
 - You should always be player X, unless specifically overridden by the user.
 - If the game is over, announce the winner or if it's a tie.
-- If it's the AI's turn, explain your strategy for the next move and include the move command.
+- If it's the  turn, explain your strategy for the next move and include the move command.
 - If it's the user's turn, ask them to make a move by specifying a position (0-8).
 - Remember the first position (0) is the top-left corner and the last position is the bottom-right corner(8).
+- Whoever goes first (usually you) is player (X) and the second player is (O).
+  After any move it is the end of your turn and you should make no other moves.
 `;
+
+interface GameState {
+  board: string[];
+  currentPlayer: string;
+  gameOver: boolean;
+  availableMoves: number[];
+}
 
 export class ModelService {
   chatContext: Message[] = [];
@@ -80,8 +100,11 @@ export class ModelService {
   }
 
   async handleChat(prompt: string): Promise<string> {
-    const { messages, userMessage } = this.prepareMessages(prompt);
-    const assistantResponse = await this.sendChatRequest(messages, userMessage);
+    const gameState = await modelService.getGameState();
+    console.log("Current Game State:", gameState);
+    const promptPlusGameState = `${prompt}\n\n${gameState}`;
+    const { messages } = this.prepareMessages(promptPlusGameState);
+    const assistantResponse = await this.sendChatRequest(messages);
     renderAiOutput(assistantResponse);
 
     console.log("assistantResponse", assistantResponse);
@@ -108,21 +131,22 @@ export class ModelService {
           commandCount++;
 
           // Update the messages with the command output and ask for explanation
-          const updatedMessages = [
-            ...messages,
-            { role: "assistant", content: finalAssistantResponse },
-            { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
-            {
-              role: "user",
-              content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
-            },
-          ];
+          // const updatedMessages = [
+          //   ...messages,
+          //   { role: "assistant", content: finalAssistantResponse },
+          //   { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
+          //   {
+          //     role: "user",
+          //     content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
+          //   },
+          // ];
+          // const assistantPrompt = finalAssistantResponse ;
+          const newPrompt = `Command output:\n${commandOutput}\nCommand run:\n${command}`;
+          const updatedMessages = this.prepareMessages(newPrompt).messages;
 
           // Get an updated response from the model based on the command output
-          finalAssistantResponse = await this.sendChatRequest(
-            updatedMessages,
-            userMessage
-          );
+
+          finalAssistantResponse = await this.sendChatRequest(updatedMessages);
           renderAiOutput(finalAssistantResponse);
         } else {
           console.log("Disallowed command:", command);
@@ -139,7 +163,7 @@ export class ModelService {
     }
 
     // Store user message and final assistant response in chat context
-    this.chatContext.push(userMessage, {
+    this.chatContext.push({
       role: "assistant",
       content: finalAssistantResponse,
     });
@@ -158,7 +182,7 @@ export class ModelService {
     };
 
     this.chatContext.push(userMessage);
-
+    this.truncateChatContext();
     const messages = [
       {
         role: "system",
@@ -170,15 +194,29 @@ export class ModelService {
     return { messages, userMessage };
   }
 
-  async sendChatRequest(
-    messages: Message[],
-    userMessage: Message
-  ): Promise<string> {
+  truncateChatContext(): void {
+    const MAX_MESSAGES = 10;
+    if (this.chatContext.length > MAX_MESSAGES) {
+      this.chatContext = this.chatContext.slice(-MAX_MESSAGES);
+    }
+  }
+
+  // Add this new method to your ModelService class
+  public async getGameState(): Promise<string | undefined> {
+    const command = `node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(data => console.log(JSON.stringify(data)))"`;
+    const commandOutput = (await this.executeCommandInWebContainer(
+      command
+    )) as string;
+    return commandOutput;
+  }
+
+  async sendChatRequest(messages: Message[]): Promise<string> {
+    console.log("Sending chat request with messages:", messages);
     const platform = PLATFORM;
     try {
       if (platform === "bedrock") {
         const chatResponse = await bedrockClient.chat(messages, {
-          temperature: 0.7,
+          temperature: 0.6,
         });
         const assistantMessage = {
           role: "assistant",
@@ -204,7 +242,7 @@ export class ModelService {
   isCommandAllowed(command: string) {
     return true; // Allow all commands for now in the WebContainer @todo: Implement command validation!
     const allowedCommands = [
-      /^node -e "fetch\('http:\/\/localhost:3111\/state'\).+"/,
+      /^node -e "fetch\('http:\/\/localhost:3111\/state'\).+/,
       /^node -e "fetch\('http:\/\/localhost:3111\/move'.+\)"/,
       /^node -e "fetch\('http:\/\/localhost:3111\/reset'.+\)"/,
       /^node\s+-e\s+"console\.log\(Math\.\w+\([\d\s.,]*\)\)"$/,
