@@ -4,7 +4,12 @@ import { files } from "./files";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
-import { renderApp, getElements, renderEditor, renderTerminal } from "./render";
+import {
+  renderApp,
+  getElements,
+  renderEditor,
+  setupFileExplorer,
+} from "./render";
 import { setupTerminal } from "./setupTerminal";
 import { modelService } from "./model/model.service";
 
@@ -16,19 +21,16 @@ const elements = getElements();
 const terminal = setupTerminal(elements.terminalEl, fitAddon);
 
 window.addEventListener("load", async () => {
-  if (!elements.textarea || !elements.iframe) {
+  if (!elements.editorArea || !elements.iframe) {
     throw new Error("Missing textarea or iframe");
   }
+  // this hsould probably be handled in editor.
   renderEditor(files["index.js"].file.contents);
-
-  elements.textarea.addEventListener("input", (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    const content = target.value || "";
-    webcontainer.fs.writeFile("/index.js", content);
-  });
 
   webcontainer = await WebContainer.boot();
   await webcontainer.mount(files);
+
+  await setupFileExplorer(webcontainer);
 
   const shellProcess = await startShell(terminal);
   window.addEventListener("resize", () => {

@@ -18,14 +18,14 @@ body {
 }
 
 .left-column {
-  width: 45%;
+  width: 40%;
   display: flex;
   flex-direction: column;
   border-right: 1px solid #333;
 }
 
 .right-column {
-  width: 55%;
+  width: 60%;
   display: flex;
   flex-direction: column;
 }
@@ -99,8 +99,21 @@ body {
   height: 100%;
 }
 
+.editor {
+  display: flex;
+}
+
+.file-explorer {
+  width: 200px;
+  overflow-y: auto;
+  background-color: #252526;
+  padding: 10px;
+  border-right: 1px solid #333;
+}
+
 #editorInput {
-  width: 100%;
+  flex-grow: 1;
+  width: calc(100% - 200px);
   height: 100%;
   resize: none;
   background-color: #1e1e1e;
@@ -153,3 +166,18 @@ iframe {
 .content {
   flex: 1;
 }
+
+.file-list {
+  list-style-type: none;
+  padding-left: 20px;
+}
+
+.file-item {
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.file-item:hover {
+  background-color: #2a2d2e;
+}
+

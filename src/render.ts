@@ -2,16 +2,18 @@
 import "./style.css";
 import { modelService } from "./model/model.service";
 import * as showdown from "showdown";
+import { WebContainer } from "@webcontainer/api";
 
 const converter = new showdown.Converter();
 
 interface Elements {
-  textarea: HTMLTextAreaElement;
+  editorArea: HTMLTextAreaElement;
   iframe: HTMLIFrameElement;
   terminalEl: HTMLElement;
   inputEl: HTMLTextAreaElement;
   outputEl: HTMLElement;
   sendButton: HTMLButtonElement;
+  fileExplorer: HTMLElement;
 }
 
 export function renderApp() {
@@ -28,12 +30,13 @@ export function renderApp() {
       </div>
       <div class="right-column">
         <div class="mode-toggle">
-          <button id="editButton" >Edit</button>
+          <button id="editButton">Edit</button>
           <button id="previewButton" class="active">Preview</button>
         </div>
         <div class="editor-container">
           <div class="editor" style="display: none;">
-            <textarea id="editorInput"></textarea>
+            <div class="file-explorer"></div>
+            <textarea id="editorInput" spellcheck="false"></textarea>
           </div>
           <div class="preview" style="margin: auto; text-align: center;">
             <h2>Welcome to War Games!</h2>
@@ -51,12 +54,13 @@ export function renderApp() {
 
 export function getElements(): Elements {
   return {
-    textarea: document.querySelector("#editorInput") as HTMLTextAreaElement,
+    editorArea: document.querySelector("#editorInput") as HTMLTextAreaElement,
     iframe: document.querySelector("iframe") as HTMLIFrameElement,
     terminalEl: document.querySelector(".terminal") as HTMLElement,
     inputEl: document.querySelector("#inputText") as HTMLTextAreaElement,
     outputEl: document.querySelector(".ai-output") as HTMLElement,
     sendButton: document.querySelector("#sendButton") as HTMLButtonElement,
+    fileExplorer: document.querySelector(".file-explorer") as HTMLElement,
   };
 }
 
@@ -96,7 +100,7 @@ function setupModeToggle() {
   editButton?.addEventListener("click", () => {
     editButton.classList.add("active");
     previewButton?.classList.remove("active");
-    editorContainer?.setAttribute("style", "display: block;");
+    editorContainer?.setAttribute("style", "display: flex;");
     previewContainer?.setAttribute("style", "display: none;");
   });
 
@@ -146,5 +150,52 @@ function setupChatHandlers() {
 
   elements.sendButton.addEventListener("click", async () => {
     await handleChatInput();
+  });
+}
+
+export async function setupFileExplorer(webcontainer: WebContainer) {
+  const fileExplorer = getElements().fileExplorer;
+  const files = await webcontainer.fs.readdir("/");
+
+  async function createFileExplorerHTML(dir: string): Promise<string> {
+    const items = await webcontainer.fs.readdir(dir);
+    let html = '<ul class="file-list">';
+    for (const item of items) {
+      const path = `${dir}/${item}`;
+      // const stat = await webcontainer.fs.stat(path);
+      const isDirectory = false; //stat.type === 'directory';
+      const icon = isDirectory ? "📁" : "📄";
+      html += `<li class="file-item" data-path="${path}" data-type="${
+        isDirectory ? "directory" : "file"
+      }">${icon} ${item}`;
+      if (isDirectory) {
+        html += await createFileExplorerHTML(path);
+      }
+      html += "</li>";
+    }
+    html += "</ul>";
+    return html;
+  }
+
+  fileExplorer.innerHTML = await createFileExplorerHTML("/");
+
+  fileExplorer.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement;
+    if (
+      target.classList.contains("file-item") &&
+      target.getAttribute("data-type") === "file"
+    ) {
+      const filePath = target.getAttribute("data-path") as string;
+      const file = await webcontainer.fs.readFile(filePath, "utf-8");
+      const editorInput = document.querySelector(
+        "#editorInput"
+      ) as HTMLTextAreaElement;
+      editorInput.value = file;
+
+      // Add event listener for input changes
+      editorInput.oninput = async () => {
+        await webcontainer.fs.writeFile(filePath, editorInput.value);
+      };
+    }
   });
 }
