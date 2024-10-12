@@ -38,7 +38,7 @@ export function renderApp() {
             <div class="file-explorer"></div>
             <textarea id="editorInput" spellcheck="false"></textarea>
           </div>
-          <div class="preview" style="margin: auto; text-align: center;">
+          <div class="preview">
             <h2>Welcome to War Games!</h2>
             <iframe></iframe>
           </div>
