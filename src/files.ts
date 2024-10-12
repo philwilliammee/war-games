@@ -167,14 +167,16 @@ app.get('/', async (req, res) => {
           })
           .then(response => response.json())
           .then(() => {
-            window.location.reload();
+            // This isn't needed due to nodemon @todo update the render.
+            // window.location.reload();
           });
         }
 
         function resetGame() {
           fetch('/reset', { method: 'POST' })
           .then(() => {
-            window.location.reload();
+            // This isn't needed due to nodemon @todo update the render, on state change.
+            // window.location.reload();
           });
         }
       </script>
@@ -223,7 +225,8 @@ app.listen(port, async () => {
     "nodemon": "latest"
   },
   "scripts": {
-    "start": "nodemon --watch './' index.js"
+    "start": "nodemon --watch './' index.js",
+    "dev": "nodemon --watch './' index.js"
   }
 }`,
     },

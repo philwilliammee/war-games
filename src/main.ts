@@ -1,23 +1,18 @@
 // main.ts - Main file of the application
 import { WebContainer } from "@webcontainer/api";
 import { files } from "./files";
-import "./style.css";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
 import { renderApp, getElements, renderEditor, renderTerminal } from "./render";
 import { setupTerminal } from "./setupTerminal";
-// import * as showdown from "showdown";
 import { modelService } from "./model/model.service";
 
-// Initialize a converter for markdown to HTML conversion
-// const converter = new showdown.Converter();
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
 
 renderApp();
 const elements = getElements();
-
 const terminal = setupTerminal(elements.terminalEl, fitAddon);
 
 window.addEventListener("load", async () => {
@@ -49,11 +44,44 @@ window.addEventListener("load", async () => {
 });
 
 async function startDevServer() {
+  // Install dependencies
+  await installDependencies();
+
+  // Run `npm run start` to start the Express app
+  await runStartCommand();
   webcontainer.on("server-ready", (port, url) => {
     if (elements.iframe) {
       elements.iframe.src = url;
     }
   });
+}
+
+async function runStartCommand() {
+  const startProcess = await webcontainer.spawn("npm", ["run", "start"]);
+
+  startProcess.output.pipeTo(
+    new WritableStream({
+      write(data) {
+        terminal.write(data);
+      },
+    })
+  );
+  // don't exit leave the game open.
+}
+
+async function installDependencies() {
+  // Install dependencies
+  const installProcess = await webcontainer.spawn("npm", ["install"]);
+
+  installProcess.output.pipeTo(
+    new WritableStream({
+      write(data) {
+        terminal.write(data);
+      },
+    })
+  );
+  // Wait for install command to exit
+  return installProcess.exit;
 }
 
 async function startShell(terminal: Terminal) {

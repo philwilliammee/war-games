@@ -1,8 +1,7 @@
 import { ollamaClient } from "./ollama/ollama.client";
 import { Terminal } from "@xterm/xterm";
 import { WebContainer } from "@webcontainer/api";
-import { Message } from "ollama";
-import { conversationLogService } from "./ConversationLog/ConversationLog.service";
+import { Message, Options } from "ollama";
 import { bedrockClient } from "./bedrock/bedrock.service";
 import { renderAiOutput } from "../render";
 // Initialize a converter for markdown to HTML conversion
@@ -11,8 +10,12 @@ import { renderAiOutput } from "../render";
 const PLATFORM = import.meta.env.VITE_PLATFORM;
 const MODEL = import.meta.env.VITE_MODEL;
 
+// You are a Coding Companion pretend that you are "Joshua", the computer protagonist of the movie “war games”.
+// I want to replay with you the scene where the main character plays tic-tac-toe with you.
 export const SYSTEM_CONFIG_MESSAGE = `
-You are an LLM that has access to a web container runtime. The runtime supports basic shell commands and a Node.js environment.
+# Role and Settings:
+You are a Coding Companion that also enjoys playing TicTacToe. Use inspiration from the movie "War Games" to guide your responses and interactions with the user, but you should not refer to them as "Professor Falken".
+You have access to a web container runtime. The runtime supports basic shell commands and a Node.js environment.
 
 When you need to execute a command to answer the user's question, output it in the following format exactly: [[execute: <command>]].
 
@@ -24,23 +27,32 @@ Only use this format when you need to execute a command; otherwise, provide the 
 
 Note: The runtime does **not** have Python or \`bc\` installed, so avoid using Python or \`bc\` commands.
 
-For the Tic-Tac-Toe game:
-1. First, get the current game state:
+You will also be provided with an auto timestamped conversation history. Use this information to guide your responses and interactions with the user.
+
+## For the Tic-Tac-Toe game:
+You will always be provided with the game state:
+GameState {
+  board: string[]; // 3x3 board with 'X', 'O', or ' ' (empty) in each cell
+  currentPlayer: string; // 'X' or 'O'
+  gameOver: boolean; // true if the game is over, false otherwise
+  availableMoves: number[]; // array of available moves (0-8)
+}
+
+1. After receiving the current game state and the user prompt, analyze it and determine your next move from one of the GameState availableMoves options.
+2. Then, make your move by running the following command: [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ position: <0-8> })}).then(res => res.json()).then(console.log)"]]
+
+You can get the current game state by running:
 
     [[execute: node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(console.log)"]]
-
-2. After receiving the game state, analyze it and determine your next move.
-3. Then, make your move:
-
-   [[execute: node -e "fetch('http://localhost:3111/move', { method: 'POST', headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ position: <0-8> })}).then(res => res.json()).then(console.log)"]]
-
 
 You can also reset the game state by running:
 
   [[execute: node -e "fetch('http://localhost:3111/reset', { method: 'POST' }).then(res => res.json()).then(console.log)"]]
 
+If You ever: receive a message like: Command output:\n\${commandOutput}\nCommand run:\n\${command}
+You have just received the output from executing a command in the runtime environment. Use this information to guide your next interaction with the user.
 
-Your goal is to win the game while prioritizing defensive play. Always check the current state before making a move. Follow these guidelines:
+### Your goal is to win the game while prioritizing defensive play. Follow these guidelines:
 
 1. Defense First: Always check if the opponent has any immediate winning moves. Block these moves as your top priority.
 2. Win if Possible: If you have an immediate winning move and there's no urgent defensive need, take it.
@@ -49,21 +61,16 @@ Your goal is to win the game while prioritizing defensive play. Always check the
 5. Center Control: If the center is available and there's no immediate threat, consider taking it as it offers good offensive and defensive options.
 6. Corner Preference: In the absence of immediate threats or opportunities, prefer corners over edge positions.
 7. Balanced Play: Remember the key importance of balanced play - always consider both offensive opportunities and defensive necessities equally.";
-
 Remember, a good defense often leads to offensive opportunities. Balance your strategy accordingly.
 
-
-If You ever: receive a message like: Command output:\n\${commandOutput}\nCommand run:\n\${command}
-You have just received the output from executing a command in the runtime environment.
-
-For Tic-Tac-Toe game interactions:
-- You should always be player X, unless specifically overridden by the user.
+### For Tic-Tac-Toe game interactions:
+- You should always be player X, and you should go first unless specifically overridden by the user.
 - If the game is over, announce the winner or if it's a tie.
-- If it's the  turn, explain your strategy for the next move and include the move command.
+- If it's your turn, explain your strategy for the next move and include the move command.
 - If it's the user's turn, ask them to make a move by specifying a position (0-8).
 - Remember the first position (0) is the top-left corner and the last position is the bottom-right corner(8).
 - Whoever goes first (usually you) is player (X) and the second player is (O).
-  After any move it is the end of your turn and you should make no other moves.
+Remember, After any move it is the end of your turn and you should make no other moves.
 `;
 
 interface GameState {
@@ -78,95 +85,84 @@ export class ModelService {
   terminal: Terminal | null = null;
   webcontainer: WebContainer | null = null;
 
-  constructor() {
-    // Optionally initialize the chat context
-    // this.initializeChatContext();
-  }
-
   async initializeChatContext(
     terminal: Terminal,
     webcontainer: WebContainer
   ): Promise<void> {
-    const [logs] = await conversationLogService.getAllConversationLogs();
+    // const [logs] = await conversationLogService.getAllConversationLogs();
 
-    this.chatContext = logs
-      .map((log) => [
-        { role: "user", content: log.user },
-        { role: "assistant", content: log.assistant },
-      ])
-      .flat();
+    this.chatContext = [
+      {
+        role: "assistant",
+        content: "HOW ARE YOU FEELING TODAY?",
+      },
+    ].flat();
     this.terminal = terminal;
     this.webcontainer = webcontainer;
+    renderAiOutput("HOW ARE YOU FEELING TODAY?");
   }
 
   async handleChat(prompt: string): Promise<string> {
-    const gameState = await modelService.getGameState();
-    console.log("Current Game State:", gameState);
-    const promptPlusGameState = `${prompt}\n\n${gameState}`;
+    // this is the most important part.
+    const gameStateString = await this.getGameState();
+    const promptPlusGameState = `The Current Game State is:\n${gameStateString}\n\n${prompt}`;
     const { messages } = this.prepareMessages(promptPlusGameState);
-    const assistantResponse = await this.sendChatRequest(messages);
+
+    let assistantResponse = await this.sendChatRequest(messages);
     renderAiOutput(assistantResponse);
-
-    console.log("assistantResponse", assistantResponse);
-
     let finalAssistantResponse = assistantResponse;
-    let commandMatches = [
+
+    const commandMatches = [
       ...assistantResponse.matchAll(/\[\[execute: (.+?)\]\]/g),
     ];
     let commandCount = 0;
 
-    while (commandMatches.length > 0 && commandCount < 5) {
-      for (const match of commandMatches) {
-        if (commandCount >= 5) {
-          break;
-        }
-        const command = match[1].trim();
+    // here we should really execute the command in the webcontainer and then return the output.
 
-        // Validate the command (implement validation as needed)
-        if (this.isCommandAllowed(command)) {
-          // Execute the command in the WebContainer
-          const commandOutput = await this.executeCommandInWebContainer(
-            command
-          );
-          commandCount++;
+    // everything after that is just for error handling retries
 
-          // Update the messages with the command output and ask for explanation
-          // const updatedMessages = [
-          //   ...messages,
-          //   { role: "assistant", content: finalAssistantResponse },
-          //   { role: "system", content: SYSTEM_EXPLAIN_PROMPT },
-          //   {
-          //     role: "user",
-          //     content: `Command output:\n${commandOutput}\nCommand run:\n${command}`,
-          //   },
-          // ];
-          // const assistantPrompt = finalAssistantResponse ;
-          const newPrompt = `Command output:\n${commandOutput}\nCommand run:\n${command}`;
-          const updatedMessages = this.prepareMessages(newPrompt).messages;
+    console.log("Command Matches:", commandMatches.length);
 
-          // Get an updated response from the model based on the command output
+    for (const match of commandMatches) {
+      if (commandCount >= 3) break;
+      let command = match[1].trim();
 
-          finalAssistantResponse = await this.sendChatRequest(updatedMessages);
-          renderAiOutput(finalAssistantResponse);
+      // Allow the assistant to try up to 3 times to resolve errors
+      for (let retry = 0; retry < 3; retry++) {
+        // Execute the command in the WebContainer
+        const commandOutput = await this.executeCommandInWebContainer(command);
+        commandCount++;
+
+        // Check for errors in the command output
+        const isError = /error:/i.test(commandOutput);
+
+        if (!isError) {
+          // Command executed successfully
+          break; // Exit retry loop and continue with the next command
         } else {
-          console.log("Disallowed command:", command);
-          // Handle disallowed commands
-          finalAssistantResponse =
-            "I'm sorry, but I'm not permitted to execute that command.";
-          renderAiOutput(finalAssistantResponse);
-          break;
+          // Inform the assistant about the error and get a new command
+          const errorPrompt = `Command output:\n${commandOutput}\nCommand run:\n${command}`;
+          const newMessages = this.prepareMessages(errorPrompt).messages;
+          assistantResponse = await this.sendChatRequest(newMessages);
+          renderAiOutput(assistantResponse);
+          finalAssistantResponse += "\n" + assistantResponse;
+
+          // Try to extract a new command from the assistant's response
+          const newCommandMatch = assistantResponse.match(
+            /\[\[execute: (.+?)\]\]/
+          );
+          if (newCommandMatch) {
+            command = newCommandMatch[1].trim();
+          } else {
+            console.log("No new command provided by the assistant.");
+            break; // Cannot proceed without a new command
+          }
         }
       }
-      commandMatches = [
-        ...finalAssistantResponse.matchAll(/\[\[execute: (.+?)\]\]/g),
-      ];
     }
 
-    // Store user message and final assistant response in chat context
-    this.chatContext.push({
-      role: "assistant",
-      content: finalAssistantResponse,
-    });
+    // Optionally, store the final assistant response in chat context
+    // this.chatContext.push({ role: "assistant", content: finalAssistantResponse });
 
     return finalAssistantResponse;
   }
@@ -202,17 +198,29 @@ export class ModelService {
   }
 
   // Add this new method to your ModelService class
-  public async getGameState(): Promise<string | undefined> {
-    const command = `node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(data => console.log(JSON.stringify(data)))"`;
-    const commandOutput = (await this.executeCommandInWebContainer(
-      command
-    )) as string;
-    return commandOutput;
+  // private async getGameState(): Promise<string | undefined> {
+  //   const command = `node -e "fetch('http://localhost:3111/state').then(res => res.json()).then(data => console.log(JSON.stringify(data)))"`;
+  //   const commandOutput = (await this.executeCommandInWebContainer(
+  //     command
+  //   )) as string;
+  //   return commandOutput;
+  // }
+  public async getGameState(): Promise<string> {
+    const command = `node -e "
+      const util = require('util');
+      fetch('http://localhost:3111/state')
+        .then(res => res.json())
+        .then(data => console.log(util.inspect(data, { depth: null })))
+    "`;
+    const commandOutput = await this.executeCommandInWebContainer(command);
+    console.log("ollama.service.getGameState Command output:", commandOutput);
+    return commandOutput.trim();
   }
 
-  async sendChatRequest(messages: Message[]): Promise<string> {
+  private async sendChatRequest(messages: Message[]): Promise<string> {
     console.log("Sending chat request with messages:", messages);
     const platform = PLATFORM;
+    const now = new Date().toLocaleTimeString();
     try {
       if (platform === "bedrock") {
         const chatResponse = await bedrockClient.chat(messages, {
@@ -220,15 +228,20 @@ export class ModelService {
         });
         const assistantMessage = {
           role: "assistant",
-          content: chatResponse,
+          content: `${now}: ${chatResponse}`,
         };
         this.chatContext.push(assistantMessage);
         return chatResponse;
       } else {
-        const chatResponse = await ollamaClient.chat(MODEL, messages, {});
+        const chatResponse = await ollamaClient.chat(
+          MODEL,
+          messages,
+          {} as Options
+        );
+
         const assistantMessage = {
           role: "assistant",
-          content: chatResponse.message.content,
+          content: `${now}: ${chatResponse.message.content}`,
         };
         this.chatContext.push(assistantMessage);
         return chatResponse.message.content;
@@ -239,7 +252,7 @@ export class ModelService {
     }
   }
 
-  isCommandAllowed(command: string) {
+  private isCommandAllowed(command: string) {
     return true; // Allow all commands for now in the WebContainer @todo: Implement command validation!
     const allowedCommands = [
       /^node -e "fetch\('http:\/\/localhost:3111\/state'\).+/,
@@ -251,7 +264,7 @@ export class ModelService {
     return allowedCommands.some((pattern) => pattern.test(command.trim()));
   }
 
-  async executeCommandInWebContainer(command: string) {
+  private async executeCommandInWebContainer(command: string) {
     if (!this.webcontainer) {
       throw new Error("WebContainer is not initialized.");
     }

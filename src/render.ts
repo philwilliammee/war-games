@@ -1,4 +1,5 @@
 // render.ts - Responsible for rendering the HTML layout and elements
+import "./style.css";
 import { modelService } from "./model/model.service";
 import * as showdown from "showdown";
 
@@ -36,7 +37,6 @@ export function renderApp() {
           </div>
           <div class="preview" style="margin: auto; text-align: center;">
             <h2>Welcome to War Games!</h2>
-            <p>To get started, run the following command in the terminal: <pre>npm i && npm start</pre></p>
             <iframe></iframe>
           </div>
         </div>
