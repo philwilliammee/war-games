@@ -1,6 +1,6 @@
 // main.ts - Main file of the application
 import { WebContainer } from "@webcontainer/api";
-import { files } from "./files";
+import { files } from "./tic-tac-toe/tic-tac-toe.files";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
@@ -11,7 +11,7 @@ import {
   setupFileExplorer,
 } from "./render";
 import { setupTerminal } from "./setupTerminal";
-import { modelService } from "./model/model.service";
+import { modelService as ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
 
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
@@ -42,7 +42,7 @@ window.addEventListener("load", async () => {
   });
 
   startDevServer();
-  await modelService.initializeChatContext(terminal, webcontainer);
+  await ticTacToeService.initializeChatContext(terminal, webcontainer);
 });
 
 async function startDevServer() {

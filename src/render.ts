@@ -1,6 +1,6 @@
 // render.ts - Responsible for rendering the HTML layout and elements
 import "./style.css";
-import { modelService } from "./model/model.service";
+import { modelService } from "./tic-tac-toe/tic-tac-toe.service";
 import * as showdown from "showdown";
 import { WebContainer } from "@webcontainer/api";
 
@@ -39,7 +39,7 @@ export function renderApp() {
             <textarea id="editorInput" spellcheck="false"></textarea>
           </div>
           <div class="preview">
-            <h2>Welcome to War Games!</h2>
+            <h2 style="text-align: center;">Welcome to War Games!</h2>
             <iframe></iframe>
           </div>
         </div>
@@ -81,13 +81,15 @@ export function renderTerminal(content: string) {
 }
 
 export function renderAiOutput(content: string) {
-  const outputEl = document.querySelector(".ai-output") as HTMLElement;
-  if (outputEl) {
-    const messageDiv = document.createElement("div");
-    messageDiv.className = "message ai-message";
-    messageDiv.innerHTML = converter.makeHtml(content);
-    outputEl.appendChild(messageDiv);
-    outputEl.scrollTop = outputEl.scrollHeight;
+  if (typeof document !== "undefined") {
+    const outputEl = document.querySelector(".ai-output") as HTMLElement;
+    if (outputEl) {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = "message ai-message";
+      messageDiv.innerHTML = converter.makeHtml(content);
+      outputEl.appendChild(messageDiv);
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
   }
 }
 

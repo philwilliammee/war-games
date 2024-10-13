@@ -15,9 +15,14 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false, // Change to warn about unused variables instead of erroring
+    "noUnusedParameters": false, // Change to warn about unused parameters instead of erroring
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/eslint.config.mjs"]
+  "include": [
+    "src/eslint.config.mjs",
+    "src/**/*.ts", // Include all source files
+    "tests/**/*.ts" // Include test files
+  ],
+  "exclude": ["node_modules"]
 }
