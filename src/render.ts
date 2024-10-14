@@ -32,11 +32,7 @@ export function renderApp() {
           </div>
           <div class="user-input">
             <textarea id="inputText" placeholder="Type your message here..."></textarea>
-            <div class="input-actions">
-              <input type="file" id="fileUpload" style="display: none;">
-              <button id="fileUploadButton">📎</button>
-              <button id="sendButton">Send</button>
-            </div>
+            <button id="sendButton">Send</button>
           </div>
         </div>
       </div>
@@ -180,34 +176,6 @@ function setupChatHandlers() {
 
   elements.sendButton.addEventListener("click", async () => {
     await handleChatInput();
-  });
-
-  // File upload handling
-  elements.fileUploadButton.addEventListener("click", () => {
-    elements.fileUploadInput.click();
-  });
-
-  elements.fileUploadInput.addEventListener("change", async (event) => {
-    const fileInput = event.target as HTMLInputElement;
-    const file = fileInput.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const content = e.target?.result as string;
-        appendUserMessage(`Uploaded file: ${file.name}`);
-        try {
-          await modelService.handleChat(
-            `I've uploaded a file named ${file.name}. Here's its content: ${content}`
-          );
-        } catch (error) {
-          console.error("Error handling file upload:", error);
-          renderAiOutput(
-            "An error occurred while processing the uploaded file."
-          );
-        }
-      };
-      reader.readAsText(file);
-    }
   });
 }
 
