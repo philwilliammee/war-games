@@ -14,7 +14,8 @@ interface Elements {
   outputEl: HTMLElement;
   sendButton: HTMLButtonElement;
   fileExplorer: HTMLElement;
-  loadingEl: HTMLElement;
+  fileUploadInput: HTMLInputElement;
+  fileUploadButton: HTMLButtonElement;
 }
 
 export function renderApp() {
@@ -23,14 +24,13 @@ export function renderApp() {
       <div class="left-column">
         <div class="chat-container">
           <div class="ai-output"></div>
-          <div class="loading-indicator" style="display: none;">
-            <div class="loading-ellipses">
-              <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
-            </div>
-          </div>
           <div class="user-input">
             <textarea id="inputText" placeholder="Type your message here..."></textarea>
-            <button id="sendButton">Send</button>
+            <div class="input-actions">
+              <input type="file" id="fileUpload" style="display: none;">
+              <button id="fileUploadButton">📎</button>
+              <button id="sendButton">Send</button>
+            </div>
           </div>
         </div>
       </div>
@@ -67,7 +67,10 @@ export function getElements(): Elements {
     outputEl: document.querySelector(".ai-output") as HTMLElement,
     sendButton: document.querySelector("#sendButton") as HTMLButtonElement,
     fileExplorer: document.querySelector(".file-explorer") as HTMLElement,
-    loadingEl: document.querySelector(".loading-indicator") as HTMLElement,
+    fileUploadInput: document.querySelector("#fileUpload") as HTMLInputElement,
+    fileUploadButton: document.querySelector(
+      "#fileUploadButton"
+    ) as HTMLButtonElement,
   };
 }
 
@@ -129,14 +132,11 @@ function setupChatHandlers() {
     if (input) {
       elements.inputEl.value = "";
       appendUserMessage(input);
-      showLoadingIndicator();
       try {
         await modelService.handleChat(input);
       } catch (error) {
         console.error("Error handling chat:", error);
         renderAiOutput("An error occurred while processing your request.");
-      } finally {
-        hideLoadingIndicator();
       }
     }
   }
@@ -153,14 +153,6 @@ function setupChatHandlers() {
     outputEl.scrollTop = outputEl.scrollHeight;
   }
 
-  function showLoadingIndicator() {
-    elements.loadingEl.style.display = "flex";
-  }
-
-  function hideLoadingIndicator() {
-    elements.loadingEl.style.display = "none";
-  }
-
   elements.inputEl.addEventListener("keyup", async (event: KeyboardEvent) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -170,6 +162,34 @@ function setupChatHandlers() {
 
   elements.sendButton.addEventListener("click", async () => {
     await handleChatInput();
+  });
+
+  // File upload handling
+  elements.fileUploadButton.addEventListener("click", () => {
+    elements.fileUploadInput.click();
+  });
+
+  elements.fileUploadInput.addEventListener("change", async (event) => {
+    const fileInput = event.target as HTMLInputElement;
+    const file = fileInput.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target?.result as string;
+        appendUserMessage(`Uploaded file: ${file.name}`);
+        try {
+          await modelService.handleChat(
+            `I've uploaded a file named ${file.name}. Here's its content: ${content}`
+          );
+        } catch (error) {
+          console.error("Error handling file upload:", error);
+          renderAiOutput(
+            "An error occurred while processing the uploaded file."
+          );
+        }
+      };
+      reader.readAsText(file);
+    }
   });
 }
 
