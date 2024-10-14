@@ -5,6 +5,7 @@ import { Message, Options } from "ollama";
 import { bedrockClient } from "../model/bedrock/bedrock.service";
 import { renderAiOutput } from "../render";
 import { SYSTEM_CONFIG_MESSAGE } from "./tic-tac-toe.bot";
+import { ticTacToeModelPredict } from "./tfjs_model/loadmodel";
 
 const PLATFORM = import.meta.env.VITE_PLATFORM;
 const MODEL = import.meta.env.VITE_MODEL;
@@ -132,15 +133,66 @@ export class TicTacToeService {
   }
 
   public async getGameState(): Promise<string> {
+    // bye bye pretty formatting it was making a javascript object string. we want json double quotes.
+    // const command = `node -e "
+    //   const util = require('util');
+    //   fetch('http://localhost:3111/state')
+    //     .then(res => res.json())
+    //     .then(data => console.log(util.inspect(data, { depth: null })))
+    // "`;
     const command = `node -e "
-      const util = require('util');
-      fetch('http://localhost:3111/state')
-        .then(res => res.json())
-        .then(data => console.log(util.inspect(data, { depth: null })))
-    "`;
-    const commandOutput = await this.executeCommandInWebContainer(command);
-    console.log("ollama.service.getGameState Command output:", commandOutput);
-    return commandOutput.trim();
+    fetch('http://localhost:3111/state')
+      .then(res => res.json())
+      .then(data => console.log(JSON.stringify(data)))
+  "`;
+
+    let gameStateData = await this.executeCommandInWebContainer(command);
+
+    try {
+      // If gameStateData is a string, parse it
+      const gameState: GameState = JSON.parse(gameStateData.trim());
+      if (gameState && gameState.board) {
+        const predictedMove = await this.getModelPrediction(gameState.board); // Ensure the board exists
+        gameStateData += `\n\nPredicted move: ${predictedMove}`;
+      } else {
+        console.log("Game state or board is undefined");
+      }
+    } catch (error) {
+      console.log("Error parsing game state:", error);
+    }
+
+    console.log("Command output:", gameStateData);
+    return gameStateData.trim();
+  }
+
+  private async getModelPrediction(
+    ticTacToeBoard: ("X" | "O" | " " | "")[]
+  ): Promise<number> {
+    console.log("TicTacToe board input:", ticTacToeBoard); // Log the board input
+    if (!ticTacToeBoard || !Array.isArray(ticTacToeBoard)) {
+      throw new Error("Invalid tic-tac-toe board input");
+    }
+
+    const modelInput = this.mapBoardToModelInput(ticTacToeBoard);
+    const predictedMove: number = await ticTacToeModelPredict(modelInput);
+    return predictedMove;
+  }
+
+  private mapBoardToModelInput(board: ("X" | "O" | " " | "")[]): number[] {
+    if (!board || !Array.isArray(board)) {
+      throw new Error(
+        "Invalid board input: Board is either undefined or not an array"
+      );
+    }
+
+    const boardMap: { [key in "X" | "O" | " " | ""]: number } = {
+      X: 1,
+      O: -1,
+      " ": 0,
+      "": 0,
+    };
+
+    return board.map((cell) => boardMap[cell]);
   }
 
   async sendChatRequest(messages: Message[]): Promise<string> {
@@ -204,17 +256,17 @@ export class TicTacToeService {
     process.output.pipeTo(
       new WritableStream({
         write(data) {
-          terminal!.write(data), (output += stripAnsiCodes(data));
+          // Use stripAnsiCodes here to remove the escape codes
+          const cleanData = stripAnsiCodes(data);
+          terminal!.write(cleanData);
+          output += cleanData;
         },
       })
     );
 
     await process.exit;
 
-    console.log(
-      "ollama.service.executeCommandInWebContainer Command output:",
-      output
-    );
+    console.log("Final cleaned output:", output); // Check the cleaned output
     return output.trim();
   }
 }
@@ -227,7 +279,7 @@ function stripAnsiCodes(str: string) {
 export const modelService = new TicTacToeService();
 
 interface GameState {
-  board: string[];
+  board: ("X" | "O" | " " | "")[];
   currentPlayer: string;
   gameOver: boolean;
   availableMoves: number[];

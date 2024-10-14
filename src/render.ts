@@ -14,6 +14,7 @@ interface Elements {
   outputEl: HTMLElement;
   sendButton: HTMLButtonElement;
   fileExplorer: HTMLElement;
+  loadingEl: HTMLElement;
 }
 
 export function renderApp() {
@@ -22,6 +23,11 @@ export function renderApp() {
       <div class="left-column">
         <div class="chat-container">
           <div class="ai-output"></div>
+          <div class="loading-indicator" style="display: none;">
+            <div class="loading-ellipses">
+              <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+            </div>
+          </div>
           <div class="user-input">
             <textarea id="inputText" placeholder="Type your message here..."></textarea>
             <button id="sendButton">Send</button>
@@ -61,6 +67,7 @@ export function getElements(): Elements {
     outputEl: document.querySelector(".ai-output") as HTMLElement,
     sendButton: document.querySelector("#sendButton") as HTMLButtonElement,
     fileExplorer: document.querySelector(".file-explorer") as HTMLElement,
+    loadingEl: document.querySelector(".loading-indicator") as HTMLElement,
   };
 }
 
@@ -122,11 +129,14 @@ function setupChatHandlers() {
     if (input) {
       elements.inputEl.value = "";
       appendUserMessage(input);
+      showLoadingIndicator();
       try {
         await modelService.handleChat(input);
       } catch (error) {
         console.error("Error handling chat:", error);
         renderAiOutput("An error occurred while processing your request.");
+      } finally {
+        hideLoadingIndicator();
       }
     }
   }
@@ -141,6 +151,14 @@ function setupChatHandlers() {
     `;
     outputEl.appendChild(messageDiv);
     outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  function showLoadingIndicator() {
+    elements.loadingEl.style.display = "flex";
+  }
+
+  function hideLoadingIndicator() {
+    elements.loadingEl.style.display = "none";
   }
 
   elements.inputEl.addEventListener("keyup", async (event: KeyboardEvent) => {
