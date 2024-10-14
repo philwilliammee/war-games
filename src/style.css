@@ -34,6 +34,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .ai-output {
@@ -191,3 +192,50 @@ iframe {
   background-color: #2a2d2e;
 }
 
+/* Loading indicator styles */
+.loading-indicator {
+  position: absolute;
+  bottom: 210px; /* Adjust this value to position it just above the user input area */
+  left: 0;
+  right: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  height: 40px;
+  background-color: rgba(37, 37, 38, 0.8); /* Semi-transparent background */
+  z-index: 10;
+}
+
+.loading-ellipses {
+  font-size: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-ellipses .dot {
+  font-size: 48px;
+  display: inline-block;
+  animation: pulse 1.4s infinite ease-in-out;
+  color: #0e639c;
+  margin: 0 2px;
+}
+
+.loading-ellipses .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-ellipses .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 60%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+}
