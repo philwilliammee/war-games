@@ -34,6 +34,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .ai-output {
@@ -68,6 +69,7 @@ body {
 }
 
 #fileUploadButton, #sendButton {
+  margin-top: 5px;
   padding: 5px 10px;
   background-color: #0e639c;
   color: white;
