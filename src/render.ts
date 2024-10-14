@@ -16,6 +16,7 @@ interface Elements {
   fileExplorer: HTMLElement;
   fileUploadInput: HTMLInputElement;
   fileUploadButton: HTMLButtonElement;
+  loadingEl: HTMLElement;
 }
 
 export function renderApp() {
@@ -24,6 +25,11 @@ export function renderApp() {
       <div class="left-column">
         <div class="chat-container">
           <div class="ai-output"></div>
+          <div class="loading-indicator" >
+            <div class="loading-ellipses">
+              <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+            </div>
+          </div>
           <div class="user-input">
             <textarea id="inputText" placeholder="Type your message here..."></textarea>
             <div class="input-actions">
@@ -71,6 +77,7 @@ export function getElements(): Elements {
     fileUploadButton: document.querySelector(
       "#fileUploadButton"
     ) as HTMLButtonElement,
+    loadingEl: document.querySelector(".loading-indicator") as HTMLElement,
   };
 }
 
@@ -132,11 +139,14 @@ function setupChatHandlers() {
     if (input) {
       elements.inputEl.value = "";
       appendUserMessage(input);
+      showLoadingIndicator();
       try {
         await modelService.handleChat(input);
       } catch (error) {
         console.error("Error handling chat:", error);
         renderAiOutput("An error occurred while processing your request.");
+      } finally {
+        hideLoadingIndicator();
       }
     }
   }
@@ -191,6 +201,14 @@ function setupChatHandlers() {
       reader.readAsText(file);
     }
   });
+
+  function showLoadingIndicator() {
+    elements.loadingEl.style.display = "flex";
+  }
+
+  function hideLoadingIndicator() {
+    elements.loadingEl.style.display = "none";
+  }
 }
 
 export async function setupFileExplorer(webcontainer: WebContainer) {
