@@ -59,15 +59,25 @@ body {
   color: #d4d4d4;
   border: 1px solid #333;
   padding: 5px;
+  margin-bottom: 5px;
 }
 
-#sendButton {
-  margin-top: 5px;
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+}
+
+#fileUploadButton, #sendButton {
   padding: 5px 10px;
   background-color: #0e639c;
   color: white;
   border: none;
   cursor: pointer;
+}
+
+#fileUploadButton {
+  font-size: 20px;
+  padding: 0 10px;
 }
 
 .mode-toggle {
