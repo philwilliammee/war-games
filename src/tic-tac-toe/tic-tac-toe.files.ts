@@ -158,7 +158,7 @@ app.get('/', async (req, res) => {
         <button class="reset-button" onclick="resetGame()">Reset Game</button>
       </div>
       <div>
-        <p><strong>Start by typing:</strong> <br /> "Lets play tic-tac-toe, you go first select a position on the board."</p>
+        <p><strong>Start:</strong> <br /> "Lets play tic-tac-toe, you go first select a position on the board."</p>
         <p><strong>Rules:</strong> <br />Let the AI companion go first it will be player "X" and you will be player "O".</p>
         <p><strong>Click on the position you want to place your "O" in the board, and then type in the chat area:</strong> <br/>"I have made my move to position <0-8>, its your turn select a position on the board."</p>
       </div>
