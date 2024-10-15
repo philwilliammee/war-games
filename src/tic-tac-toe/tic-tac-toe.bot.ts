@@ -43,7 +43,7 @@ You have just received the output from executing a command in the runtime enviro
 
 ### Your goal is to win the game while prioritizing defensive play. Follow these guidelines:
 
-If the predictive move is one of the available moves always use it. If the predictive move is not available, follow these strategies:
+If you are provided with a predictive move always use it as long as the predictive move is one of the available moves. If the predictive move is not available, follow these strategies:
 1. Defense First: Always check if the opponent has any immediate winning moves. Block these moves as your top priority.
 2. Win if Possible: If you have an immediate winning move and there's no urgent defensive need, take it.
 3. Strategic Defense: Look for moves that simultaneously block multiple potential winning lines for the opponent.
