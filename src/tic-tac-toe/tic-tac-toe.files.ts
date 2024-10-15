@@ -12,7 +12,7 @@ const port = 3111;
 app.use(express.json());
 
 const stateFilePath = path.join(process.cwd(), 'tictactoe-state.json');
-const gameHistoryPath = path.join(process.cwd(), 'tictactoe-history.json');
+// const gameHistoryPath = path.join(process.cwd(), 'tictactoe-history.json');
 
 // Initialize game state
 const initializeGameState = async () => {
@@ -21,8 +21,8 @@ const initializeGameState = async () => {
     currentPlayer: 'X',
     gameOver: false,
     availableMoves: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-    wins: { X: 0, O: 0, ties: 0 }, // Track wins for X, O, and ties
-    moveHistory: [] // Track each move of the game
+    // wins: { X: 0, O: 0, ties: 0 }, // Track wins for X, O, and ties
+    // moveHistory: [] // Track each move of the game
   };
 };
 
@@ -49,17 +49,17 @@ const updateGameState = async (newState) => {
 };
 
 // Save game history after a win or tie
-const saveGameHistory = async (finalBoard) => {
-  try {
-    const data = await fs.readFile(gameHistoryPath, 'utf8');
-    const history = JSON.parse(data);
-    history.push(finalBoard);
-    await fs.writeFile(gameHistoryPath, JSON.stringify(history, null, 2));
-  } catch (error) {
-    const initialHistory = [finalBoard];
-    await fs.writeFile(gameHistoryPath, JSON.stringify(initialHistory, null, 2));
-  }
-};
+// const saveGameHistory = async (finalBoard) => {
+//   try {
+//     const data = await fs.readFile(gameHistoryPath, 'utf8');
+//     const history = JSON.parse(data);
+//     history.push(finalBoard);
+//     await fs.writeFile(gameHistoryPath, JSON.stringify(history, null, 2));
+//   } catch (error) {
+//     const initialHistory = [finalBoard];
+//     await fs.writeFile(gameHistoryPath, JSON.stringify(initialHistory, null, 2));
+//   }
+// };
 
 // Check for a winner
 const checkWinner = (board) => {
@@ -88,19 +88,19 @@ const makeMove = async (position) => {
 
   state.board[position] = state.currentPlayer;
   state.availableMoves = state.availableMoves.filter(move => move !== position);
-  state.moveHistory.push({ board: [...state.board], player: state.currentPlayer });
+  // state.moveHistory.push({ board: [...state.board], player: state.currentPlayer });
 
   const winner = checkWinner(state.board);
 
   if (winner) {
     state.gameOver = true;
-    state.wins[winner] += 1;  // Update win count for the winner
-    await saveGameHistory(state.moveHistory);  // Save the final board state
+    // state.wins[winner] += 1;  // Update win count for the winner
+    // await saveGameHistory(state.moveHistory);  // Save the final board state
   } else if (state.availableMoves.length === 0) {
     state.gameOver = true;
     state.currentPlayer = 'Tie';
-    state.wins.ties += 1;  // Update tie count
-    await saveGameHistory(state.moveHistory);  // Save the final board state
+    // state.wins.ties += 1;  // Update tie count
+    // await saveGameHistory(state.moveHistory);  // Save the final board state
   } else {
     state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
   }
@@ -113,9 +113,9 @@ app.get('/', async (req, res) => {
   const state = await readGameState();
 
   // Ensure wins object is initialized (just in case)
-  if (!state.wins) {
-    state.wins = { X: 0, O: 0, ties: 0 };
-  }
+  // if (!state.wins) {
+  //   state.wins = { X: 0, O: 0, ties: 0 };
+  // }
 
   const htmlContent = \`
     <!DOCTYPE html>
@@ -190,11 +190,6 @@ app.get('/', async (req, res) => {
                 ? "It's a tie!"
                 : \`Player \${state.currentPlayer} wins!\`)
             : \`Current player: \${state.currentPlayer}\`}
-        </div>
-        <div class="scoreboard">
-          <p>Player X wins: \${state.wins.X}</p>
-          <p>Player O wins: \${state.wins.O}</p>
-          <p>Ties: \${state.wins.ties}</p>
         </div>
         <button class="reset-button" onclick="resetGame()">Reset Game</button>
       </div>
@@ -290,15 +285,7 @@ app.listen(port, async () => {
   "currentPlayer": "X",
   "gameOver": false,
   "availableMoves": [0, 1, 2, 3, 4, 5, 6, 7, 8],
-  "wins": { "X": 0, "O": 0, "ties": 0 },
-  "moveHistory": []
 }`,
-    },
-  },
-  "tictactoe-history.json": {
-    file: {
-      contents: `
-[]`,
     },
   },
 };
