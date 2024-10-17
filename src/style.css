@@ -111,6 +111,11 @@ body {
   height: 100%;
 }
 
+.iframe-container {
+  background-color: #fafaff;
+  height: 100%;
+}
+
 .editor {
   display: flex;
 }

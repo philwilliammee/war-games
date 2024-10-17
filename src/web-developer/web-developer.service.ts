@@ -1,17 +1,16 @@
-// tic-tac-toe.service.ts
+// web-developer.service.ts
 
 import { BaseService } from "../base/base.service";
-import { SYSTEM_CONFIG_MESSAGE } from "./tic-tac-toe.bot";
+import { SYSTEM_CONFIG_MESSAGE } from "./web-developer.bot";
 import { renderAiOutput } from "../render";
 
-export class TicTacToeService extends BaseService {
+export class WebDeveloperService extends BaseService {
   SYSTEM_CONFIG_MESSAGE = SYSTEM_CONFIG_MESSAGE;
 
   async processCommand(
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    // Extract multiple commands
     const commandMatches =
       assistantResponse.match(/\[\[execute: (.+?)\]\]/g) || [];
     let commandCount = 0;
@@ -19,6 +18,7 @@ export class TicTacToeService extends BaseService {
 
     for (const match of commandMatches) {
       if (commandCount >= maxCommands) break;
+      console.log("Match:", match);
       let command = match.replace("[[execute: ", "").replace("]]", "").trim();
       let retryCount = 0;
       const maxRetries = 3;
@@ -68,37 +68,6 @@ export class TicTacToeService extends BaseService {
 
     return currentResponse;
   }
-
-  // Override handleChat to include game state
-  async handleChat(prompt: string): Promise<string> {
-    const gameStateString = await this.getGameState();
-    const promptPlusGameState = `The Current Game State is:\n${gameStateString}\n\n${prompt}`;
-    const { messages } = this.prepareMessages(promptPlusGameState);
-    const assistantResponse = await this.sendChatRequest(messages);
-    renderAiOutput(assistantResponse);
-
-    let finalAssistantResponse = assistantResponse;
-
-    finalAssistantResponse = await this.processCommand(
-      assistantResponse,
-      finalAssistantResponse
-    );
-
-    return finalAssistantResponse;
-  }
-
-  // Specific method to get game state
-  public async getGameState(): Promise<string> {
-    const command = `node -e "
-      const util = require('util');
-      fetch('http://localhost:3111/state')
-        .then(res => res.json())
-        .then(data => console.log(util.inspect(data, { depth: null })))
-    "`;
-    const commandOutput = await this.executeCommandInWebContainer(command);
-    console.log("Game State Command Output:", commandOutput);
-    return commandOutput.trim();
-  }
 }
 
-export const ticTacToeService = new TicTacToeService();
+export const webDeveloperService = new WebDeveloperService();

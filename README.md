@@ -74,3 +74,7 @@ This will install the necessary dependencies and start the Tic-Tac-Toe game in y
 Then in the input tell the AI to make a move by typing `Lets play tic-tac-toe, you go first select a position on the board.`.
 
 after each move update the input and let the AI know it is their turn by typing `I have made my move to position <0-8>, its your turn select a position on the board.`.
+
+generate example headings one through 6
+
+lets explore the index.html space slowly increase the complexity of the command until we get errors.

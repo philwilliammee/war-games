@@ -1,8 +1,13 @@
 // render.ts - Responsible for rendering the HTML layout and elements
 import "./style.css";
-import { modelService } from "./tic-tac-toe/tic-tac-toe.service";
+import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
+import { webDeveloperService } from "./web-developer/web-developer.service";
 import * as showdown from "showdown";
 import { WebContainer } from "@webcontainer/api";
+
+const module = import.meta.env.VITE_MODULE;
+const modelService =
+  module === "ticTacToe" ? ticTacToeService : webDeveloperService;
 
 const converter = new showdown.Converter();
 
@@ -52,7 +57,9 @@ export function renderApp() {
           </div>
           <div class="preview">
             <h2 style="text-align: center;">Welcome to War Games!</h2>
-            <iframe></iframe>
+            <div class="iframe-container">
+              <iframe></iframe>
+            </div>
           </div>
         </div>
         <div class="terminal"></div>
