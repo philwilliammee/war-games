@@ -98,8 +98,8 @@ app.get('/', async (req, res) => {
           display: flex;
           justify-content: center;
           align-items: center;
-          height: 100vh;
-          margin: 0;
+          height: 100%;
+          overflow: auto;
           background-color: #f0f0f0;
           flex-direction: column;
         }
