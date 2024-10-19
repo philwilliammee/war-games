@@ -105,22 +105,48 @@ describe("BaseService", () => {
     vi.clearAllMocks();
   });
 
-  // Existing tests...
-
   // Add tests for extractCommands method
   describe("BaseService.extractCommands", () => {
-    it("should extract commands from response correctly", () => {
-      const response =
-        "Here is a command [[execute: ls -al]] and another [[execute: node -v]]";
+    it("should extract commands from structured response correctly", () => {
+      const response = JSON.stringify({
+        assistantResponse: "Here are the commands.",
+        commands: [
+          { command: "ls", args: ["-al"], content: "" },
+          { command: "node", args: ["-v"], content: "" },
+        ],
+      });
       const commands = service.extractCommands(response);
-      expect(commands).toEqual(["ls -al", "node -v"]);
+      expect(commands).toEqual([
+        { command: "ls", args: ["-al"], content: "" },
+        { command: "node", args: ["-v"], content: "" },
+      ]);
     });
 
-    it("should extract commands and markdown from response correctly", async () => {
-      const response =
-        "Here is a command [[execute: update_file /public/index.html]]\n```markdown\n<html><body>Hello World</body></html>\n```";
+    it("should extract update_file command with content from structured response correctly", async () => {
+      const response = JSON.stringify({
+        assistantResponse: "Here is the update command.",
+        commands: [
+          {
+            command: "update_file",
+            args: ["/public/index.html"],
+            content: "<html><body>Hello World</body></html>",
+          },
+        ],
+      });
       const commands = service.extractCommands(response);
-      expect(commands).toEqual(["update_file /public/index.html"]);
+      expect(commands).toEqual([
+        {
+          command: "update_file",
+          args: ["/public/index.html"],
+          content: "<html><body>Hello World</body></html>",
+        },
+      ]);
+
+      // Execute the command to trigger the writeFile mock
+      for (const command of commands) {
+        await service.executeCommandInWebContainer(command);
+      }
+
       expect(webcontainer.fs.writeFile).toHaveBeenCalledTimes(1);
       expect(webcontainer.fs.writeFile).toHaveBeenCalledWith(
         "/public/index.html",
@@ -128,13 +154,50 @@ describe("BaseService", () => {
       );
     });
 
-    it("should return an empty array when no commands are found", () => {
-      const response = "No commands here!";
+    it("should return an empty array when no commands are found in structured response", () => {
+      const response = JSON.stringify({
+        assistantResponse: "No commands here!",
+        commands: [],
+      });
       const commands = service.extractCommands(response);
       expect(commands).toEqual([]);
     });
   });
 
   // Add tests for processCommand method
-  // this is abstract
+  describe("BaseService.processCommand", () => {
+    it("should execute node command to calculate the square root of a number", async () => {
+      const response = JSON.stringify({
+        assistantResponse: "Here is the command to calculate the square root.",
+        commands: [
+          {
+            command: "node",
+            args: ["-e"],
+            content: "console.log(Math.sqrt(16))",
+          },
+        ],
+      });
+      const commands = service.extractCommands(response);
+      expect(commands).toEqual([
+        {
+          command: "node",
+          args: ["-e"],
+          content: "console.log(Math.sqrt(16))",
+        },
+      ]);
+
+      // Mock spawn to simulate command execution
+      webcontainer.spawn = vi.fn().mockResolvedValue({
+        output: {
+          pipeTo: vi.fn().mockImplementation((writableStream) => {
+            writableStream.getWriter().write("4\n");
+          }),
+        },
+        exit: Promise.resolve(0),
+      });
+
+      const output = await service.executeCommandInWebContainer(commands[0]);
+      expect(output).toBe("4");
+    });
+  });
 });

@@ -1,7 +1,7 @@
 // render.ts - Responsible for rendering the HTML layout and elements
 import "./style.css";
 import { webDeveloperService } from "./web-developer/web-developer.service";
-import * as showdown from "showdown";
+// import * as showdown from "showdown";
 import { WebContainer } from "@webcontainer/api";
 import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
 
@@ -9,7 +9,7 @@ const module = import.meta.env.VITE_MODULE;
 const modelService =
   module === "ticTacToe" ? ticTacToeService : webDeveloperService;
 
-const converter = new showdown.Converter();
+// const converter = new showdown.Converter();
 
 interface Elements {
   editorArea: HTMLTextAreaElement;
@@ -110,7 +110,7 @@ export function renderAiOutput(content: string) {
     if (outputEl) {
       const messageDiv = document.createElement("div");
       messageDiv.className = "message ai-message";
-      messageDiv.innerHTML = converter.makeHtml(content);
+      messageDiv.innerHTML = content; // converter.makeHtml(content);
       outputEl.appendChild(messageDiv);
       outputEl.scrollTop = outputEl.scrollHeight;
     }
@@ -164,7 +164,7 @@ function setupChatHandlers() {
     messageDiv.className = "message user-message";
     messageDiv.innerHTML = `
       <div class="avatar">👤</div>
-      <div class="content">${converter.makeHtml(message)}</div>
+      <div class="content">${message}</div>
     `;
     outputEl.appendChild(messageDiv);
     outputEl.scrollTop = outputEl.scrollHeight;

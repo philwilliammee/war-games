@@ -25,34 +25,40 @@ export class TicTacToeService extends BaseService {
       let executionSuccess = false;
 
       while (retryCount < maxRetries && !executionSuccess) {
-        const output = await this.executeCommandInWebContainer(command);
-        updatedResponse += `\n${output}`;
+        try {
+          const output = await this.executeCommandInWebContainer(command);
+          updatedResponse += `\n${output}`;
 
-        if (!/error:/i.test(output)) {
-          executionSuccess = true;
-        } else {
-          // Prepare error prompt
-          const errorPrompt = `Command output:\n${output}\nCommand run:\n${command}`;
-          const newMessages = this.prepareMessages(errorPrompt).messages;
-
-          const assistantRetryResponse = await this.sendChatRequest(
-            newMessages
-          );
-          updatedResponse += `\n${assistantRetryResponse}`;
-
-          // Extract new command from the assistant's response
-          const newCommandMatches = this.extractCommands(
-            assistantRetryResponse
-          );
-          if (newCommandMatches && newCommandMatches.length > 0) {
-            command = newCommandMatches[0];
+          if (!/error:/i.test(output)) {
+            executionSuccess = true;
           } else {
-            updatedResponse += "\nNo new command provided.";
-            break;
-          }
+            // Prepare error prompt
+            const errorPrompt = `Command output:\n${output}\nCommand run:\n${
+              command.command
+            } ${command.args.join(" ")}`;
+            const newMessages = this.prepareMessages(errorPrompt).messages;
 
-          retryCount++;
+            const assistantRetryResponse = await this.sendChatRequest(
+              newMessages
+            );
+            updatedResponse += `\n${assistantRetryResponse}`;
+
+            // Extract new command from the assistant's response
+            const newCommandMatches = this.extractCommands(
+              assistantRetryResponse
+            );
+            if (newCommandMatches && newCommandMatches.length > 0) {
+              command = newCommandMatches[0];
+            } else {
+              updatedResponse += "\nNo new command provided.";
+              break;
+            }
+          }
+        } catch (error: any) {
+          console.error("Error executing command:", error);
+          updatedResponse += `\nError executing command: ${error.message}`;
         }
+        retryCount++;
       }
     }
 
@@ -79,18 +85,15 @@ export class TicTacToeService extends BaseService {
 
   // Specific method to get game state
   public async getGameState(): Promise<string> {
-    // bye bye pretty formatting it was making a javascript object string. we want json double quotes.
-    // const command = `node -e "
-    //   const util = require('util');
-    //   fetch('http://localhost:3111/state')
-    //     .then(res => res.json())
-    //     .then(data => console.log(util.inspect(data, { depth: null })))
-    // "`;
-    const command = `node -e "
-    fetch('http://localhost:3111/state')
-      .then(res => res.json())
-      .then(data => console.log(JSON.stringify(data)))
-  "`;
+    const command = {
+      command: "node",
+      args: ["-e"],
+      content: `
+      fetch('http://localhost:3111/state')
+        .then(res => res.json())
+        .then(data => console.log(JSON.stringify(data)))
+    `,
+    };
 
     let gameStateData = await this.executeCommandInWebContainer(command);
 
