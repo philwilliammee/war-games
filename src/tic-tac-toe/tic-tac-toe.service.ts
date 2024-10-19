@@ -12,7 +12,7 @@ export class TicTacToeService extends BaseService {
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    const commands = this.extractCommands(assistantResponse);
+    const commands = await this.extractCommands(assistantResponse);
     if (commands.length === 0) {
       return currentResponse;
     }
@@ -44,7 +44,7 @@ export class TicTacToeService extends BaseService {
             updatedResponse += `\n${assistantRetryResponse}`;
 
             // Extract new command from the assistant's response
-            const newCommandMatches = this.extractCommands(
+            const newCommandMatches = await this.extractCommands(
               assistantRetryResponse
             );
             if (newCommandMatches && newCommandMatches.length > 0) {

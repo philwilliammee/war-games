@@ -1,5 +1,3 @@
-// base.service.ts
-
 import { ollamaClient } from "../model/ollama/ollama.client";
 import { Terminal } from "@xterm/xterm";
 import { WebContainer } from "@webcontainer/api";
@@ -57,25 +55,47 @@ export abstract class BaseService {
   }
 
   // Extract structured commands from the response
-  extractCommands(response: string): ExtractedCommand[] {
+  async extractCommands(response: string): Promise<ExtractedCommand[]> {
     console.log("Extracting commands from response:", response);
     let parsedResponse;
     try {
-      // We use trim and replace to remove any extraneous characters before and after the JSON object to ensure proper parsing.
-      // This is necessary because the AI might return extra text or characters surrounding the valid JSON output.
       parsedResponse = JSON.parse(
         response
           .trim()
           .replace(/^[^\{]*/, "")
           .replace(/[^\}]*$/, "")
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to parse response as JSON:", error);
+      this.chatContext.push({
+        role: "user",
+        content: `Failed to parse response as JSON: ${error.message}`,
+      });
+      // maybe don't handle it here.
+      // @todo this should do the full error handling, and ui updating not just return an empty array.
+      const aiResponse = await this.sendChatRequest(this.chatContext);
+      this.chatContext.push({
+        role: "assistant",
+        content: aiResponse,
+      });
+      console.log("aiResponse", aiResponse);
       return [];
     }
 
     if (!parsedResponse.commands || !Array.isArray(parsedResponse.commands)) {
       console.error("No commands found or commands format is invalid");
+      this.chatContext.push({
+        role: "user",
+        content: `No commands found or commands format is invalid in response: ${response}`,
+      });
+      // maybe don't handle it here.
+      // @todo this should do the full error handling, and ui updating not just return an empty array.
+      const aiResponse = await this.sendChatRequest(this.chatContext);
+      console.log("aiResponse", aiResponse);
+      this.chatContext.push({
+        role: "assistant",
+        content: aiResponse,
+      });
       return [];
     }
 
@@ -93,7 +113,6 @@ export abstract class BaseService {
     messages: Message[];
     userMessage: Message;
   } {
-    // const now = new Date().toLocaleTimeString();
     const userMessage = {
       role: "user",
       content: prompt,
@@ -124,7 +143,6 @@ export abstract class BaseService {
   async sendChatRequest(messages: Message[]): Promise<string> {
     console.log("Sending chat request with messages:", messages);
     const platform = PLATFORM;
-    // const now = new Date().toLocaleTimeString();
 
     try {
       if (platform === "bedrock") {

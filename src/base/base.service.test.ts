@@ -68,7 +68,7 @@ class TestService extends BaseService {
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    const commands = this.extractCommands(assistantResponse);
+    const commands = await this.extractCommands(assistantResponse);
     if (commands.length === 0) {
       return currentResponse;
     }
@@ -107,7 +107,7 @@ describe("BaseService", () => {
 
   // Add tests for extractCommands method
   describe("BaseService.extractCommands", () => {
-    it("should extract commands from structured response correctly", () => {
+    it("should extract commands from structured response correctly", async () => {
       const response = JSON.stringify({
         assistantResponse: "Here are the commands.",
         commands: [
@@ -115,7 +115,7 @@ describe("BaseService", () => {
           { command: "node", args: ["-v"], content: "" },
         ],
       });
-      const commands = service.extractCommands(response);
+      const commands = await service.extractCommands(response);
       expect(commands).toEqual([
         { command: "ls", args: ["-al"], content: "" },
         { command: "node", args: ["-v"], content: "" },
@@ -133,7 +133,7 @@ describe("BaseService", () => {
           },
         ],
       });
-      const commands = service.extractCommands(response);
+      const commands = await service.extractCommands(response);
       expect(commands).toEqual([
         {
           command: "update_file",
@@ -154,12 +154,12 @@ describe("BaseService", () => {
       );
     });
 
-    it("should return an empty array when no commands are found in structured response", () => {
+    it("should return an empty array when no commands are found in structured response", async () => {
       const response = JSON.stringify({
         assistantResponse: "No commands here!",
         commands: [],
       });
-      const commands = service.extractCommands(response);
+      const commands = await service.extractCommands(response);
       expect(commands).toEqual([]);
     });
   });
@@ -177,7 +177,7 @@ describe("BaseService", () => {
           },
         ],
       });
-      const commands = service.extractCommands(response);
+      const commands = await service.extractCommands(response);
       expect(commands).toEqual([
         {
           command: "node",

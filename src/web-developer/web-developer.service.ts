@@ -11,7 +11,7 @@ export class WebDeveloperService extends BaseService {
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    const commands = this.extractCommands(assistantResponse);
+    const commands = await this.extractCommands(assistantResponse);
     let commandCount = 0;
     const maxCommands = 3;
 
@@ -47,7 +47,9 @@ export class WebDeveloperService extends BaseService {
           currentResponse += `\n${assistantRetryResponse}`;
 
           // Extract new command from the assistant's response
-          const newCommands = this.extractCommands(assistantRetryResponse);
+          const newCommands = await this.extractCommands(
+            assistantRetryResponse
+          );
           if (newCommands && newCommands.length > 0) {
             command.command = newCommands[0].command;
             command.args = newCommands[0].args;

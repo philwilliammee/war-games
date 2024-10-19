@@ -75,14 +75,6 @@ Then in the input tell the AI to make a move by typing `Lets play tic-tac-toe, y
 
 after each move update the input and let the AI know it is their turn by typing `I have made my move to position <0-8>, its your turn select a position on the board.`.
 
-generate example headings one through 6
+improve the UI and UX.
 
-lets explore the index.html space increase the complexity of the command until we get errors.
-
-lets update_file public/styles.css
-
-now lets import it into our index.html file
-
-looks great. Now lets create a UI input and display add a help command.
-
-very nice now how about some ASCII art use string concat not template literals.
+Display a help message on user input.
