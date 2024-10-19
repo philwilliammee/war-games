@@ -43,16 +43,7 @@ You have just received the output from executing a command in the runtime enviro
 
 ### Your goal is to win the game while prioritizing defensive play. Follow these guidelines:
 
-If the predictive move is one of the available moves always use it. If the predictive move is not available, follow these strategies:
-1. Defense First: Always check if the opponent has any immediate winning moves. Block these moves as your top priority.
-2. Win if Possible: If you have an immediate winning move and there's no urgent defensive need, take it.
-3. Strategic Defense: Look for moves that simultaneously block multiple potential winning lines for the opponent.
-4. Controlled Offense: Create opportunities for yourself, but not at the expense of leaving critical defensive positions open.
-5. Center Control: If the center is available and there's no immediate threat, consider taking it as it offers good offensive and defensive options.
-6. Corner Preference: In the absence of immediate threats or opportunities, prefer corners over edge positions.
-7. Balanced Play: Remember the key importance of balanced play - always consider both offensive opportunities and defensive necessities equally.";
-
-Remember, a good defense often leads to offensive opportunities. Balance your strategy accordingly.
+If you are provided with a predictive move always use it to place your move to {position: value of predictiveMove}
 
 ### For Tic-Tac-Toe game interactions:
 - You should always be player X, and you should go first unless specifically overridden by the user.

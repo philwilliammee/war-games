@@ -12,31 +12,23 @@ const port = 3111;
 app.use(express.json());
 
 const stateFilePath = path.join(process.cwd(), 'tictactoe-state.json');
-const gameHistoryPath = path.join(process.cwd(), 'tictactoe-history.json');
 
 // Initialize game state
 const initializeGameState = async () => {
-  return {
+  const initialState = {
     board: [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
     currentPlayer: 'X',
     gameOver: false,
-    availableMoves: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-    wins: { X: 0, O: 0, ties: 0 }, // Track wins for X, O, and ties
-    moveHistory: [] // Track each move of the game
+    availableMoves: [0, 1, 2, 3, 4, 5, 6, 7, 8]
   };
+  return initialState;
 };
 
 // Read game state
 const readGameState = async () => {
   try {
     const data = await fs.readFile(stateFilePath, 'utf8');
-    const state = JSON.parse(data);
-
-    // Ensure state has all necessary properties
-    const defaultState = await initializeGameState();
-    const mergedState = { ...defaultState, ...state };
-
-    return mergedState;
+    return JSON.parse(data);
   } catch (error) {
     console.error('Error reading game state:', error);
     return initializeGameState();
@@ -46,19 +38,6 @@ const readGameState = async () => {
 // Update game state
 const updateGameState = async (newState) => {
   await fs.writeFile(stateFilePath, JSON.stringify(newState));
-};
-
-// Save game history after a win or tie
-const saveGameHistory = async (finalBoard) => {
-  try {
-    const data = await fs.readFile(gameHistoryPath, 'utf8');
-    const history = JSON.parse(data);
-    history.push(finalBoard);
-    await fs.writeFile(gameHistoryPath, JSON.stringify(history, null, 2));
-  } catch (error) {
-    const initialHistory = [finalBoard];
-    await fs.writeFile(gameHistoryPath, JSON.stringify(initialHistory, null, 2));
-  }
 };
 
 // Check for a winner
@@ -72,7 +51,7 @@ const checkWinner = (board) => {
   for (let pattern of winPatterns) {
     const [a, b, c] = pattern;
     if (board[a] !== ' ' && board[a] === board[b] && board[a] === board[c]) {
-      return board[a];  // Return the winner ('X' or 'O')
+      return board[a];
     }
   }
 
@@ -88,19 +67,14 @@ const makeMove = async (position) => {
 
   state.board[position] = state.currentPlayer;
   state.availableMoves = state.availableMoves.filter(move => move !== position);
-  state.moveHistory.push({ board: [...state.board], player: state.currentPlayer });
-
   const winner = checkWinner(state.board);
 
   if (winner) {
     state.gameOver = true;
-    state.wins[winner] += 1;  // Update win count for the winner
-    await saveGameHistory(state.moveHistory);  // Save the final board state
+    state.availableMoves = []; // Clear available moves when game is over
   } else if (state.availableMoves.length === 0) {
     state.gameOver = true;
     state.currentPlayer = 'Tie';
-    state.wins.ties += 1;  // Update tie count
-    await saveGameHistory(state.moveHistory);  // Save the final board state
   } else {
     state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
   }
@@ -111,12 +85,6 @@ const makeMove = async (position) => {
 
 app.get('/', async (req, res) => {
   const state = await readGameState();
-
-  // Ensure wins object is initialized (just in case)
-  if (!state.wins) {
-    state.wins = { X: 0, O: 0, ties: 0 };
-  }
-
   const htmlContent = \`
     <!DOCTYPE html>
     <html lang="en">
@@ -130,8 +98,8 @@ app.get('/', async (req, res) => {
           display: flex;
           justify-content: center;
           align-items: center;
-          height: 100vh;
-          margin: 0;
+          height: 100%;
+          overflow: auto;
           background-color: #f0f0f0;
           flex-direction: column;
         }
@@ -168,10 +136,6 @@ app.get('/', async (req, res) => {
           font-size: 1em;
           cursor: pointer;
         }
-        .scoreboard {
-          margin-top: 20px;
-          font-size: 1.2em;
-        }
       </style>
     </head>
     <body>
@@ -191,45 +155,35 @@ app.get('/', async (req, res) => {
                 : \`Player \${state.currentPlayer} wins!\`)
             : \`Current player: \${state.currentPlayer}\`}
         </div>
-        <div class="scoreboard">
-          <p>Player X wins: \${state.wins.X}</p>
-          <p>Player O wins: \${state.wins.O}</p>
-          <p>Ties: \${state.wins.ties}</p>
-        </div>
         <button class="reset-button" onclick="resetGame()">Reset Game</button>
       </div>
-            <script>
-        async function makeMove(position) {
-          try {
-            const response = await fetch('/move', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ position })
-            });
-            if (response.ok) {
-              window.location.reload();
-            } else {
-              const errorData = await response.json();
-              alert(errorData.error);
-            }
-          } catch (error) {
-            console.error('Error making move:', error);
-          }
+      <div>
+        <p><strong>Start:</strong> <br /> "Lets play tic-tac-toe, you go first select a position on the board."</p>
+        <p><strong>Rules:</strong> <br />Let the AI companion go first it will be player "X" and you will be player "O".</p>
+        <p><strong>Click on the position you want to place your "O" in the board, and then type in the chat area:</strong> <br/>"I have made my move to position <0-8>, its your turn select a position on the board."</p>
+      </div>
+      <script>
+        function makeMove(position) {
+          fetch('/move', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ position }),
+          })
+          .then(response => response.json())
+          .then(() => {
+            // This isn't needed due to nodemon @todo update the render.
+            // window.location.reload();
+          });
         }
 
-        async function resetGame() {
-          try {
-            const response = await fetch('/reset', {
-              method: 'POST'
-            });
-            if (response.ok) {
-              window.location.reload();
-            } else {
-              console.error('Error resetting game:', await response.text());
-            }
-          } catch (error) {
-            console.error('Error resetting game:', error);
-          }
+        function resetGame() {
+          fetch('/reset', { method: 'POST' })
+          .then(() => {
+            // This isn't needed due to nodemon @todo update the render, on state change.
+            // window.location.reload();
+          });
         }
       </script>
     </body>
@@ -250,7 +204,7 @@ app.post('/move', async (req, res) => {
     const newState = await readGameState();
     res.json(newState);
   } else {
-    console.log('Invalid move to position: ', position);
+   console.log('Invalid move to position: ', position);
     res.status(400).json({ error: 'Invalid move' });
   }
 });
@@ -277,7 +231,8 @@ app.listen(port, async () => {
     "nodemon": "latest"
   },
   "scripts": {
-  "start": "nodemon --watch './' --ignore 'tictactoe-history.json' index.js"
+    "start": "nodemon --watch './' index.js",
+    "dev": "nodemon --watch './' index.js"
   }
 }`,
     },
@@ -289,16 +244,8 @@ app.listen(port, async () => {
   "board": [" ", " ", " ", " ", " ", " ", " ", " ", " "],
   "currentPlayer": "X",
   "gameOver": false,
-  "availableMoves": [0, 1, 2, 3, 4, 5, 6, 7, 8],
-  "wins": { "X": 0, "O": 0, "ties": 0 },
-  "moveHistory": []
+  "availableMoves": [0, 1, 2, 3, 4, 5, 6, 7, 8]
 }`,
-    },
-  },
-  "tictactoe-history.json": {
-    file: {
-      contents: `
-[]`,
     },
   },
 };

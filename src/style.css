@@ -208,7 +208,6 @@ iframe {
   justify-content: center;
   align-items: center;
   height: 40px;
-  background-color: rgba(37, 37, 38, 0.8); /* Semi-transparent background */
   z-index: 10;
 }
 
