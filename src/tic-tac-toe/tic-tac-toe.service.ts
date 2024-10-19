@@ -3,6 +3,7 @@
 import { BaseService } from "../base/base.service";
 import { SYSTEM_CONFIG_MESSAGE } from "./tic-tac-toe.bot";
 import { renderAiOutput } from "../render";
+import { ticTacToeModelPredict } from "./tfjs_model/loadmodel";
 
 export class TicTacToeService extends BaseService {
   SYSTEM_CONFIG_MESSAGE = SYSTEM_CONFIG_MESSAGE;
@@ -89,16 +90,74 @@ export class TicTacToeService extends BaseService {
 
   // Specific method to get game state
   public async getGameState(): Promise<string> {
+    // bye bye pretty formatting it was making a javascript object string. we want json double quotes.
+    // const command = `node -e "
+    //   const util = require('util');
+    //   fetch('http://localhost:3111/state')
+    //     .then(res => res.json())
+    //     .then(data => console.log(util.inspect(data, { depth: null })))
+    // "`;
     const command = `node -e "
-      const util = require('util');
-      fetch('http://localhost:3111/state')
-        .then(res => res.json())
-        .then(data => console.log(util.inspect(data, { depth: null })))
-    "`;
-    const commandOutput = await this.executeCommandInWebContainer(command);
-    console.log("Game State Command Output:", commandOutput);
-    return commandOutput.trim();
+    fetch('http://localhost:3111/state')
+      .then(res => res.json())
+      .then(data => console.log(JSON.stringify(data)))
+  "`;
+
+    let gameStateData = await this.executeCommandInWebContainer(command);
+
+    try {
+      // If gameStateData is a string, parse it
+      const gameState: GameState = JSON.parse(gameStateData.trim());
+      if (gameState && gameState.board) {
+        const predictedMove = await this.getModelPrediction(gameState.board); // Ensure the board exists
+        gameStateData += `\n\nPredicted move: ${predictedMove}`;
+      } else {
+        console.log("Game state or board is undefined");
+      }
+    } catch (error) {
+      console.log("Error parsing game state:", error);
+    }
+
+    console.log("Command output:", gameStateData);
+    return gameStateData.trim();
+  }
+
+  private async getModelPrediction(
+    ticTacToeBoard: ("X" | "O" | " " | "")[]
+  ): Promise<number> {
+    console.log("TicTacToe board input:", ticTacToeBoard); // Log the board input
+    if (!ticTacToeBoard || !Array.isArray(ticTacToeBoard)) {
+      throw new Error("Invalid tic-tac-toe board input");
+    }
+
+    const modelInput = this.mapBoardToModelInput(ticTacToeBoard);
+    const predictedMove: number = await ticTacToeModelPredict(modelInput);
+    return predictedMove;
+  }
+
+  private mapBoardToModelInput(board: ("X" | "O" | " " | "")[]): number[] {
+    if (!board || !Array.isArray(board)) {
+      throw new Error(
+        "Invalid board input: Board is either undefined or not an array"
+      );
+    }
+
+    const boardMap: { [key in "X" | "O" | " " | ""]: number } = {
+      X: 1,
+      O: -1,
+      " ": 0,
+      "": 0,
+    };
+
+    return board.map((cell) => boardMap[cell]);
   }
 }
 
-export const ticTacToeService = new TicTacToeService();
+export const modelService = new TicTacToeService();
+
+interface GameState {
+  board: ("X" | "O" | " " | "")[];
+  currentPlayer: string;
+  gameOver: boolean;
+  availableMoves: number[];
+}
