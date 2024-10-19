@@ -23,15 +23,19 @@ export abstract class BaseService {
     terminal: Terminal,
     webcontainer: WebContainer
   ): Promise<void> {
+    const content = JSON.stringify({
+      assistantResponse: "HOW ARE YOU FEELING TODAY?",
+      commands: [],
+    });
     this.chatContext = [
       {
         role: "assistant",
-        content: "HOW ARE YOU FEELING TODAY?",
+        content,
       },
     ];
     this.terminal = terminal;
     this.webcontainer = webcontainer;
-    renderAiOutput("HOW ARE YOU FEELING TODAY?");
+    renderAiOutput(content);
   }
 
   // Handle the chat interaction
@@ -54,9 +58,17 @@ export abstract class BaseService {
 
   // Extract structured commands from the response
   extractCommands(response: string): ExtractedCommand[] {
+    console.log("Extracting commands from response:", response);
     let parsedResponse;
     try {
-      parsedResponse = JSON.parse(response);
+      // We use trim and replace to remove any extraneous characters before and after the JSON object to ensure proper parsing.
+      // This is necessary because the AI might return extra text or characters surrounding the valid JSON output.
+      parsedResponse = JSON.parse(
+        response
+          .trim()
+          .replace(/^[^\{]*/, "")
+          .replace(/[^\}]*$/, "")
+      );
     } catch (error) {
       console.error("Failed to parse response as JSON:", error);
       return [];
@@ -81,10 +93,10 @@ export abstract class BaseService {
     messages: Message[];
     userMessage: Message;
   } {
-    const now = new Date().toLocaleTimeString();
+    // const now = new Date().toLocaleTimeString();
     const userMessage = {
       role: "user",
-      content: `${now}: ${prompt}`,
+      content: prompt,
     };
 
     this.chatContext.push(userMessage);
@@ -112,7 +124,7 @@ export abstract class BaseService {
   async sendChatRequest(messages: Message[]): Promise<string> {
     console.log("Sending chat request with messages:", messages);
     const platform = PLATFORM;
-    const now = new Date().toLocaleTimeString();
+    // const now = new Date().toLocaleTimeString();
 
     try {
       if (platform === "bedrock") {
@@ -121,7 +133,7 @@ export abstract class BaseService {
         });
         const assistantMessage = {
           role: "assistant",
-          content: `${now}: ${chatResponse}`,
+          content: chatResponse,
         };
         this.chatContext.push(assistantMessage);
         return chatResponse;
@@ -133,7 +145,7 @@ export abstract class BaseService {
         );
         const assistantMessage = {
           role: "assistant",
-          content: `${now}: ${chatResponse.message.content}`,
+          content: chatResponse.message.content,
         };
         this.chatContext.push(assistantMessage);
         return chatResponse.message.content;
@@ -165,12 +177,36 @@ export abstract class BaseService {
     }
 
     const cmd = command.command;
-    const args = command.args;
+    let args = command.args;
+
+    // Append the content to the arguments if it's a node command with '-e'
+    if (cmd === "node" && args.includes("-e")) {
+      args = [...args, command.content];
+    }
 
     if (cmd === "update_file" && command.args.length > 0) {
       const filePath = command.args[0];
       console.log(`Updating file: ${filePath} with content:`, command.content);
-      await this.webcontainer.fs.writeFile(filePath, command.content);
+      try {
+        try {
+          await this.webcontainer.fs.writeFile(filePath, command.content);
+        } catch (error: any) {
+          if (error.code === "ENOENT") {
+            console.log(`File does not exist, creating: ${filePath}`);
+            await this.webcontainer.fs.mkdir(
+              filePath.substring(0, filePath.lastIndexOf("/")),
+              { recursive: true }
+            );
+            await this.webcontainer.fs.writeFile(filePath, command.content);
+          } else {
+            console.error("Error writing file:", error);
+            return `Error writing file: ${error.message}`;
+          }
+        }
+      } catch (error: any) {
+        console.error("Error writing file:", error);
+        return `Error writing file: ${error.message}`;
+      }
       return `File updated: ${filePath}`;
     }
 

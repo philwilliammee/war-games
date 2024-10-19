@@ -77,4 +77,12 @@ after each move update the input and let the AI know it is their turn by typing 
 
 generate example headings one through 6
 
-lets explore the index.html space slowly increase the complexity of the command until we get errors.
+lets explore the index.html space increase the complexity of the command until we get errors.
+
+lets update_file public/styles.css
+
+now lets import it into our index.html file
+
+looks great. Now lets create a UI input and display add a help command.
+
+very nice now how about some ASCII art use string concat not template literals.

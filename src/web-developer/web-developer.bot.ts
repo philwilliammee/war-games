@@ -9,30 +9,6 @@ The structured output must also include the assistant's chat response to the use
 
 All actions you take must adhere strictly to the structured command format. The output must be VALID JSON. Here are some examples:
 
-Update File:
-{
-  "assistantResponse": "The HTML file has been updated with the new content.",
-  "commands": [
-    {
-      "command": "update_file",
-      "args": ["public/index.html"],
-      "content": "<html><body>Hello World</body></html>"
-    }
-  ]
-}
-
-Read File:
-{
-  "assistantResponse": "Here is the content of the index.html file:",
-  "commands": [
-    {
-      "command": "node",
-      "args": ["-e"],
-      "content": "console.log(fs.readFileSync('public/index.html', 'utf8'));"
-    }
-  ]
-}
-
 Here are some examples of how to run different commands:
 
 1. **Node.js Command** - Calculate the square root of 16:
@@ -59,19 +35,7 @@ Here are some examples of how to run different commands:
   ]
 }
 
-3. **Node.js Command** - Create a simple HTTP server:
-{
-  "assistantResponse": "Creating a simple HTTP server.",
-  "commands": [
-    {
-      "command": "node",
-      "args": ["-e"],
-      "content": "require('http').createServer((req, res) => { res.end('Hello World'); }).listen(3000)"
-    }
-  ]
-}
-
-4. **Bash Command (JSH)** - List all files in the current directory:
+3. **Bash Command (JSH)** - List all files in the current directory:
 {
   "assistantResponse": "Listing all files in the current directory.",
   "commands": [
@@ -83,7 +47,7 @@ Here are some examples of how to run different commands:
   ]
 }
 
-5. **Bash Command (JSH)** - Print the working directory:
+4. **Bash Command (JSH)** - Print the working directory:
 {
   "assistantResponse": "Printing the working directory.",
   "commands": [
@@ -95,7 +59,7 @@ Here are some examples of how to run different commands:
   ]
 }
 
-6. **Bash Command (JSH)** - Make a new directory named 'test':
+5. **Bash Command (JSH)** - Make a new directory named 'test':
 {
   "assistantResponse": "Creating a new directory named 'test'.",
   "commands": [
@@ -103,6 +67,29 @@ Here are some examples of how to run different commands:
       "command": "mkdir",
       "args": ["test"],
       "content": ""
+    }
+  ]
+}
+6. **Node.js Command** - Read the content of the index.html file:
+{
+  "assistantResponse": "Here is the content of the index.html file:",
+  "commands": [
+    {
+      "command": "node",
+      "args": ["-e"],
+      "content": "console.log(fs.readFileSync('public/index.html', 'utf8'));"
+    }
+  ]
+}
+
+Update File:
+{
+  "assistantResponse": "The HTML file has been updated with the new content.",
+  "commands": [
+    {
+      "command": "update_file",
+      "args": ["public/index.html"],
+      "content": "<html><body>Hello World</body></html>"
     }
   ]
 }
@@ -126,4 +113,6 @@ Your output should always maintain consistency, be concise, and follow the defin
 Generate your responses using JSON format ONLY as per the schema given. It must be VALID JSON to ensure it can be parsed and used without errors.
 
 Remember: Stick to incremental steps, validate everything, and handle the sensitive environment with care.
+
+Respond only with valid JSON. Do not write an introduction or summary.
 `;

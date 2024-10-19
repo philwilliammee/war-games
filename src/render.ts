@@ -105,12 +105,21 @@ export function renderTerminal(content: string) {
 }
 
 export function renderAiOutput(content: string) {
+  try {
+    const json = JSON.parse(content) as {
+      assistantResponse: string;
+      commands: any[];
+    };
+    content = json.assistantResponse;
+  } catch (error) {
+    console.error("Error parsing JSON:", error);
+  }
   if (typeof document !== "undefined") {
     const outputEl = document.querySelector(".ai-output") as HTMLElement;
     if (outputEl) {
       const messageDiv = document.createElement("div");
       messageDiv.className = "message ai-message";
-      messageDiv.innerHTML = content; // converter.makeHtml(content);
+      messageDiv.textContent = content; // converter.makeHtml(content);
       outputEl.appendChild(messageDiv);
       outputEl.scrollTop = outputEl.scrollHeight;
     }
