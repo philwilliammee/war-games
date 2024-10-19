@@ -77,6 +77,13 @@ p {
     `,
         },
       },
+      "index.js": {
+        file: {
+          contents: `
+// This file is intentionally left blank
+`,
+        },
+      },
     },
   },
 };

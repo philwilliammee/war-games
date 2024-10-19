@@ -1,9 +1,9 @@
 // render.ts - Responsible for rendering the HTML layout and elements
 import "./style.css";
-import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
 import { webDeveloperService } from "./web-developer/web-developer.service";
 import * as showdown from "showdown";
 import { WebContainer } from "@webcontainer/api";
+import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
 
 const module = import.meta.env.VITE_MODULE;
 const modelService =
@@ -220,47 +220,67 @@ function setupChatHandlers() {
 
 export async function setupFileExplorer(webcontainer: WebContainer) {
   const fileExplorer = getElements().fileExplorer;
-  const files = await webcontainer.fs.readdir("/");
 
   async function createFileExplorerHTML(dir: string): Promise<string> {
-    const items = await webcontainer.fs.readdir(dir);
-    let html = '<ul class="file-list">';
-    for (const item of items) {
-      const path = `${dir}/${item}`;
-      // const stat = await webcontainer.fs.stat(path);
-      const isDirectory = false; //stat.type === 'directory';
-      const icon = isDirectory ? "📁" : "📄";
-      html += `<li class="file-item" data-path="${path}" data-type="${
-        isDirectory ? "directory" : "file"
-      }">${icon} ${item}`;
-      if (isDirectory) {
-        html += await createFileExplorerHTML(path);
+    try {
+      const items = await webcontainer.fs.readdir(dir, { withFileTypes: true });
+      let html = '<ul class="file-list">';
+      for (const item of items) {
+        const path = `${dir}/${item.name}`;
+        const isDirectory = item.isDirectory();
+        const icon = isDirectory ? "📁" : "📄";
+        html += `<li class="file-item" data-path="${path}" data-type="${
+          isDirectory ? "directory" : "file"
+        }">${icon} ${item.name}`;
+        if (isDirectory) {
+          html += await createFileExplorerHTML(path);
+        }
+        html += "</li>";
       }
-      html += "</li>";
+      html += "</ul>";
+      return html;
+    } catch (error) {
+      console.error(`Error reading directory ${dir}:`, error);
+      return `<li class="error">Error reading ${dir}</li>`;
     }
-    html += "</ul>";
-    return html;
   }
 
-  fileExplorer.innerHTML = await createFileExplorerHTML("/");
+  try {
+    fileExplorer.innerHTML = await createFileExplorerHTML("/");
 
-  fileExplorer.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    if (
-      target.classList.contains("file-item") &&
-      target.getAttribute("data-type") === "file"
-    ) {
-      const filePath = target.getAttribute("data-path") as string;
-      const file = await webcontainer.fs.readFile(filePath, "utf-8");
-      const editorInput = document.querySelector(
-        "#editorInput"
-      ) as HTMLTextAreaElement;
-      editorInput.value = file;
+    fileExplorer.addEventListener("click", async (event) => {
+      const target = event.target as HTMLElement;
+      if (target.classList.contains("file-item")) {
+        const filePath = target.getAttribute("data-path") as string;
+        const fileType = target.getAttribute("data-type");
 
-      // Add event listener for input changes
-      editorInput.oninput = async () => {
-        await webcontainer.fs.writeFile(filePath, editorInput.value);
-      };
-    }
-  });
+        if (fileType === "file") {
+          try {
+            const file = await webcontainer.fs.readFile(filePath, "utf-8");
+            const editorInput = document.querySelector(
+              "#editorInput"
+            ) as HTMLTextAreaElement;
+            editorInput.value = file;
+
+            // Add event listener for input changes
+            editorInput.oninput = async () => {
+              await webcontainer.fs.writeFile(filePath, editorInput.value);
+            };
+          } catch (error) {
+            console.error(`Error reading file ${filePath}:`, error);
+          }
+        } else if (fileType === "directory") {
+          // Toggle directory expansion
+          const sublist = target.querySelector("ul");
+          if (sublist) {
+            sublist.style.display =
+              sublist.style.display === "none" ? "block" : "none";
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error setting up file explorer:", error);
+    fileExplorer.innerHTML = "<p>Error loading file explorer</p>";
+  }
 }

@@ -12,62 +12,51 @@ export class TicTacToeService extends BaseService {
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    // Extract multiple commands
-    const commandMatches =
-      assistantResponse.match(/\[\[execute: (.+?)\]\]/g) || [];
-    let commandCount = 0;
-    const maxCommands = 3;
-
-    for (const match of commandMatches) {
-      if (commandCount >= maxCommands) break;
-      let command = match.replace("[[execute: ", "").replace("]]", "").trim();
-      let retryCount = 0;
-      const maxRetries = 3;
-
-      while (retryCount < maxRetries) {
-        const commandOutput = await this.executeCommandInWebContainer(command);
-        currentResponse += `\nCommand Output:\n${commandOutput}`;
-
-        const isError = /error:/i.test(commandOutput);
-        if (!isError) {
-          // Successful execution
-          break;
-        }
-
-        // Prepare error prompt
-        const errorPrompt = `Command output:\n${commandOutput}\nCommand run:\n${command}`;
-        const newMessages = this.prepareMessages(errorPrompt).messages;
-
-        const assistantRetryResponse = await this.sendChatRequest(newMessages);
-        renderAiOutput(assistantRetryResponse);
-        currentResponse += `\n${assistantRetryResponse}`;
-
-        // Extract new command from the assistant's response
-        const newCommandMatches = assistantRetryResponse.match(
-          /\[\[execute: (.+?)\]\]/g
-        );
-        if (newCommandMatches && newCommandMatches.length > 0) {
-          command = newCommandMatches[0]
-            .replace("[[execute: ", "")
-            .replace("]]", "")
-            .trim();
-        } else {
-          console.log("No new command provided by the assistant.");
-          break;
-        }
-
-        retryCount++;
-      }
-
-      if (retryCount === maxRetries) {
-        console.log("Max retries reached for command:", command);
-        break;
-      }
-
-      commandCount++;
+    const commands = this.extractCommands(assistantResponse);
+    if (commands.length === 0) {
+      return currentResponse;
     }
 
-    return currentResponse;
+    let updatedResponse = currentResponse;
+
+    for (let command of commands) {
+      let retryCount = 0;
+      const maxRetries = 3;
+      let executionSuccess = false;
+
+      while (retryCount < maxRetries && !executionSuccess) {
+        const output = await this.executeCommandInWebContainer(command);
+        updatedResponse += `\n${output}`;
+
+        if (!/error:/i.test(output)) {
+          executionSuccess = true;
+        } else {
+          // Prepare error prompt
+          const errorPrompt = `Command output:\n${output}\nCommand run:\n${command}`;
+          const newMessages = this.prepareMessages(errorPrompt).messages;
+
+          const assistantRetryResponse = await this.sendChatRequest(
+            newMessages
+          );
+          updatedResponse += `\n${assistantRetryResponse}`;
+
+          // Extract new command from the assistant's response
+          const newCommandMatches = this.extractCommands(
+            assistantRetryResponse
+          );
+          if (newCommandMatches && newCommandMatches.length > 0) {
+            command = newCommandMatches[0];
+          } else {
+            updatedResponse += "\nNo new command provided.";
+            break;
+          }
+
+          retryCount++;
+        }
+      }
+    }
+
+    return updatedResponse;
   }
 
   // Override handleChat to include game state
@@ -122,9 +111,7 @@ export class TicTacToeService extends BaseService {
     return gameStateData.trim();
   }
 
-  private async getModelPrediction(
-    ticTacToeBoard: ("X" | "O" | " " | "")[]
-  ): Promise<number> {
+  private async getModelPrediction(ticTacToeBoard: Board): Promise<number> {
     console.log("TicTacToe board input:", ticTacToeBoard); // Log the board input
     if (!ticTacToeBoard || !Array.isArray(ticTacToeBoard)) {
       throw new Error("Invalid tic-tac-toe board input");
@@ -135,7 +122,7 @@ export class TicTacToeService extends BaseService {
     return predictedMove;
   }
 
-  private mapBoardToModelInput(board: ("X" | "O" | " " | "")[]): number[] {
+  private mapBoardToModelInput(board: Board): number[] {
     if (!board || !Array.isArray(board)) {
       throw new Error(
         "Invalid board input: Board is either undefined or not an array"
@@ -153,11 +140,13 @@ export class TicTacToeService extends BaseService {
   }
 }
 
-export const modelService = new TicTacToeService();
+export const ticTacToeService = new TicTacToeService();
 
 interface GameState {
-  board: ("X" | "O" | " " | "")[];
+  board: Board;
   currentPlayer: string;
   gameOver: boolean;
   availableMoves: number[];
 }
+
+export type Board = ("X" | "O" | " " | "")[];

@@ -52,6 +52,35 @@ export abstract class BaseService {
     return finalAssistantResponse;
   }
 
+  extractCommands(response: string): string[] {
+    const commands: string[] = [];
+
+    // Extract basic commands
+    const commandMatches = [...response.matchAll(/\[\[execute: (.+?)\]\]/g)];
+    for (const match of commandMatches) {
+      commands.push(match[1]);
+    }
+
+    // Extract commands with markdown content
+    const markdownMatches = response.matchAll(
+      /\[\[execute: (.+?)\]\]\n```(?:markdown)?\n([\s\S]*?)\n```/gi
+    );
+    for (const match of markdownMatches) {
+      const command = match[1];
+      const content = match[2];
+      console.log("Command:", command);
+      console.log("Content:", content);
+      if (command && content) {
+        this.updateFileFromMarkdown(command, content);
+        if (!commands.includes(command)) {
+          commands.push(command);
+        }
+      }
+    }
+
+    return commands;
+  }
+
   // Abstract method for processing commands
   abstract processCommand(
     assistantResponse: string,
@@ -128,6 +157,7 @@ export abstract class BaseService {
 
   // Check if the command is allowed
   isCommandAllowed(command: string): boolean {
+    return true;
     const allowedPatterns = [
       /^node\s+/i, // Commands starting with 'node'
       /.+/, // Any other commands
@@ -143,7 +173,11 @@ export abstract class BaseService {
 
     const args = command.match(/"[^"]+"|[^\s]+/g);
     const cmd = args!.shift() as string;
-    const sanitizedArgs = args!.map((arg) => arg.replace(/^"|"$/g, ""));
+    if (command === "update_file") {
+      throw new Error("Invalid command format for updating file.");
+    }
+    const sanitizedArgs = args!.map((arg) => arg);
+    // const sanitizedArgs = args!.map((arg) => arg.replace(/^"|"$/g, ""));
 
     console.log(`Executing command: ${cmd} with args:`, sanitizedArgs);
 
@@ -163,6 +197,25 @@ export abstract class BaseService {
     await process.exit;
     console.log("Command output:", output);
     return output.trim();
+  }
+
+  // Update file content from markdown input
+  async updateFileFromMarkdown(
+    command: string,
+    content: string
+  ): Promise<void> {
+    if (!this.webcontainer) {
+      throw new Error("WebContainer is not initialized.");
+    }
+
+    const filePathMatch = command.match(/update_file\s+(.+)/);
+    if (filePathMatch) {
+      const filePath = filePathMatch[1];
+      console.log(`Updating file: ${filePath} with content:`, content);
+      await this.webcontainer.fs.writeFile(filePath, content);
+    } else {
+      throw new Error("Invalid command format for updating file.");
+    }
   }
 }
 

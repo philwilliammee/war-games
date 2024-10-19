@@ -11,8 +11,7 @@ export class WebDeveloperService extends BaseService {
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    const commandMatches =
-      assistantResponse.match(/\[\[execute: (.+?)\]\]/g) || [];
+    const commandMatches = this.extractCommands(assistantResponse);
     let commandCount = 0;
     const maxCommands = 3;
 
@@ -42,9 +41,7 @@ export class WebDeveloperService extends BaseService {
         currentResponse += `\n${assistantRetryResponse}`;
 
         // Extract new command from the assistant's response
-        const newCommandMatches = assistantRetryResponse.match(
-          /\[\[execute: (.+?)\]\]/g
-        );
+        const newCommandMatches = this.extractCommands(assistantRetryResponse);
         if (newCommandMatches && newCommandMatches.length > 0) {
           command = newCommandMatches[0]
             .replace("[[execute: ", "")
