@@ -1,6 +1,4 @@
-// web-developer.service.ts
-
-import { BaseService } from "../base/base.service";
+import { BaseService, ExtractedCommand } from "../base/base.service";
 import { SYSTEM_CONFIG_MESSAGE } from "./web-developer.bot";
 import { renderAiOutput } from "../render";
 
@@ -11,7 +9,26 @@ export class WebDeveloperService extends BaseService {
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
-    const commands = await this.extractCommands(assistantResponse);
+    let commands: ExtractedCommand[] = [];
+
+    try {
+      // Attempt to extract commands
+      commands = await this.extractCommands(assistantResponse);
+    } catch (error: any) {
+      console.error("Error extracting commands:", error);
+
+      // Use handleCommandError to inform the AI and get potential corrections
+      const errorPrompt = `An error occurred while extracting commands: ${error.message}. Response received: ${assistantResponse}`;
+      const result = await this.handleCommandError(
+        errorPrompt,
+        { command: "", args: [], content: "" }, // Dummy command object as placeholder
+        currentResponse
+      );
+
+      commands = result.newCommands || [];
+      currentResponse = result.currentResponse;
+    }
+
     let commandCount = 0;
     const maxCommands = 3;
 
@@ -23,37 +40,33 @@ export class WebDeveloperService extends BaseService {
 
       while (retryCount < maxRetries) {
         try {
+          // Execute the command in the web container
           const commandOutput = await this.executeCommandInWebContainer(
             command
           );
           currentResponse += `\nCommand Output:\n${commandOutput}`;
 
+          // Check if the command output contains an error
           const isError = /error:/i.test(commandOutput);
           if (!isError) {
-            // Successful execution
+            // Successful execution, exit the retry loop
             break;
           }
 
-          // Prepare error prompt
-          const errorPrompt = `Command output:\n${commandOutput}\nCommand run:\n${
-            command.command
-          } ${command.args.join(" ")}`;
-          const newMessages = this.prepareMessages(errorPrompt).messages;
+          // Handle the command error and prepare a new command
+          let newCommands;
+          ({ newCommands, currentResponse } = await this.handleCommandError(
+            commandOutput,
+            command,
+            currentResponse
+          ));
 
-          const assistantRetryResponse = await this.sendChatRequest(
-            newMessages
-          );
-          renderAiOutput(assistantRetryResponse);
-          currentResponse += `\n${assistantRetryResponse}`;
-
-          // Extract new command from the assistant's response
-          const newCommands = await this.extractCommands(
-            assistantRetryResponse
-          );
+          // If new commands are provided, update the command details for retry
           if (newCommands && newCommands.length > 0) {
-            command.command = newCommands[0].command;
-            command.args = newCommands[0].args;
-            command.content = newCommands[0].content;
+            const [newCommand] = newCommands;
+            command.command = newCommand.command;
+            command.args = newCommand.args;
+            command.content = newCommand.content;
           } else {
             console.log("No new command provided by the assistant.");
             break;
@@ -75,6 +88,22 @@ export class WebDeveloperService extends BaseService {
     }
 
     return currentResponse;
+  }
+
+  private async handleCommandError(
+    errorPrompt: string,
+    command: ExtractedCommand,
+    currentResponse: string
+  ) {
+    const newMessages = this.prepareMessages(errorPrompt).messages;
+
+    const assistantRetryResponse = await this.sendChatRequest(newMessages);
+    renderAiOutput(assistantRetryResponse);
+    currentResponse += `\n${assistantRetryResponse}`;
+
+    // Extract new command from the assistant's response
+    const newCommands = await this.extractCommands(assistantRetryResponse);
+    return { newCommands, currentResponse };
   }
 }
 

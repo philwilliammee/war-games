@@ -16,7 +16,11 @@ export abstract class BaseService {
   // Abstract properties to be defined in subclasses
   abstract SYSTEM_CONFIG_MESSAGE: string;
 
-  // Initialize the chat context and set up the terminal and web container
+  /**
+   * Initializes the chat context with a default assistant message and sets up the terminal and web container.
+   * @param terminal - The terminal instance to be used for displaying command outputs.
+   * @param webcontainer - The web container instance for executing commands.
+   */
   async initializeChatContext(
     terminal: Terminal,
     webcontainer: WebContainer
@@ -36,7 +40,12 @@ export abstract class BaseService {
     renderAiOutput(content);
   }
 
-  // Handle the chat interaction
+  /**
+   * Handles a chat interaction by sending a prompt to the assistant, rendering the response,
+   * and processing any commands included in the assistant's response.
+   * @param prompt - The user's prompt to the assistant.
+   * @returns The assistant's final response after processing any commands.
+   */
   async handleChat(prompt: string): Promise<string> {
     const promptWithTimestamp = `${prompt}`;
     const { messages } = this.prepareMessages(promptWithTimestamp);
@@ -54,61 +63,50 @@ export abstract class BaseService {
     return finalAssistantResponse;
   }
 
-  // Extract structured commands from the response
+  /**
+   * Extracts structured commands from the assistant's response.
+   * This function attempts to parse a JSON object containing commands.
+   * @param response - The assistant's response containing potential commands.
+   * @returns An array of extracted commands.
+   * @throws Will throw an error if the response cannot be parsed as JSON.
+   */
   async extractCommands(response: string): Promise<ExtractedCommand[]> {
     console.log("Extracting commands from response:", response);
     let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(
-        response
-          .trim()
-          .replace(/^[^\{]*/, "")
-          .replace(/[^\}]*$/, "")
-      );
-    } catch (error: any) {
-      console.error("Failed to parse response as JSON:", error);
-      this.chatContext.push({
-        role: "user",
-        content: `Failed to parse response as JSON: ${error.message}`,
-      });
-      // maybe don't handle it here.
-      // @todo this should do the full error handling, and ui updating not just return an empty array.
-      const aiResponse = await this.sendChatRequest(this.chatContext);
-      this.chatContext.push({
-        role: "assistant",
-        content: aiResponse,
-      });
-      console.log("aiResponse", aiResponse);
-      return [];
-    }
+    // If the parse fails, an error will be thrown and caught in the calling function.
+    parsedResponse = JSON.parse(
+      response
+        .trim() // Remove leading and trailing whitespace.
+        .replace(/^[^\{]*/, "") // Remove everything before the first '{'.
+        .replace(/[^\}]*$/, "") // Remove everything after the last '}'.
+    );
 
     if (!parsedResponse.commands || !Array.isArray(parsedResponse.commands)) {
       console.error("No commands found or commands format is invalid");
-      this.chatContext.push({
-        role: "user",
-        content: `No commands found or commands format is invalid in response: ${response}`,
-      });
-      // maybe don't handle it here.
-      // @todo this should do the full error handling, and ui updating not just return an empty array.
-      const aiResponse = await this.sendChatRequest(this.chatContext);
-      console.log("aiResponse", aiResponse);
-      this.chatContext.push({
-        role: "assistant",
-        content: aiResponse,
-      });
       return [];
     }
 
     return parsedResponse.commands;
   }
 
-  // Abstract method for processing commands
+  /**
+   * Abstract method to process commands from the assistant's response.
+   * This must be implemented by subclasses to define command processing logic.
+   * @param assistantResponse - The original response from the assistant.
+   * @param currentResponse - The current state of the response after initial processing.
+   * @returns The updated response after processing commands.
+   */
   abstract processCommand(
     assistantResponse: string,
     currentResponse: string
   ): Promise<string>;
 
-  // Prepare messages for the chat request
+  /**
+   * Prepares the chat context for sending to the assistant by adding the user's message
+   * and truncating older messages to keep the context manageable.
+   * @param prompt - The user's message to the assistant.
+   * @returns An object containing the prepared messages and the user's message.
+   */
   prepareMessages(prompt: string): {
     messages: Message[];
     userMessage: Message;
@@ -131,7 +129,10 @@ export abstract class BaseService {
     return { messages, userMessage };
   }
 
-  // Truncate the chat context to keep it within a reasonable size
+  /**
+   * Truncates the chat context to ensure that only a limited number of messages are retained.
+   * This helps to keep the context within a manageable size for processing.
+   */
   truncateChatContext(): void {
     const MAX_MESSAGES = 10;
     if (this.chatContext.length > MAX_MESSAGES) {
@@ -139,7 +140,13 @@ export abstract class BaseService {
     }
   }
 
-  // Send a chat request to the assistant
+  /**
+   * Sends a chat request to the assistant using either the Bedrock or Ollama platform.
+   * Adds the assistant's response to the chat context.
+   * @param messages - The array of messages to send as part of the request.
+   * @returns The assistant's response content.
+   * @throws Will throw an error if the chat request fails.
+   */
   async sendChatRequest(messages: Message[]): Promise<string> {
     console.log("Sending chat request with messages:", messages);
     const platform = PLATFORM;
@@ -174,19 +181,28 @@ export abstract class BaseService {
     }
   }
 
-  // Check if the command is allowed
+  /**
+   * Checks if a given command is allowed based on predefined patterns.
+   * @param command - The command to check.
+   * @returns True if the command is allowed, otherwise false.
+   */
   isCommandAllowed(command: ExtractedCommand): boolean {
     return true;
     const allowedPatterns = [
-      /^node\s+/i, // Commands starting with 'node'
-      /.+/, // Any other commands
+      /^node\s+/i, // Commands starting with 'node'.
+      /.+/, // Any other commands.
     ];
     return allowedPatterns.some((pattern) =>
       pattern.test(command.command.trim())
     );
   }
 
-  // Execute a command in the web container
+  /**
+   * Executes a command within the web container and returns the output.
+   * @param command - The command to execute, including its arguments and content.
+   * @returns The output produced by executing the command.
+   * @throws Will throw an error if the web container is not initialized.
+   */
   async executeCommandInWebContainer(
     command: ExtractedCommand
   ): Promise<string> {
@@ -197,7 +213,7 @@ export abstract class BaseService {
     const cmd = command.command;
     let args = command.args;
 
-    // Append the content to the arguments if it's a node command with '-e'
+    // Append the content to the arguments if it's a node command with '-e'.
     if (cmd === "node" && args.includes("-e")) {
       args = [...args, command.content];
     }
@@ -249,12 +265,16 @@ export abstract class BaseService {
   }
 }
 
-// Helper function to strip ANSI escape codes
-function stripAnsiCodes(str: string) {
+/**
+ * Helper function to strip ANSI escape codes from a string.
+ * @param str - The string containing potential ANSI escape codes.
+ * @returns The string with ANSI escape codes removed.
+ */
+function stripAnsiCodes(str: string): string {
   return str.replace(/\x1B\[[0-?]*[ -\/]*[@-~]/g, "");
 }
 
-interface ExtractedCommand {
+export interface ExtractedCommand {
   command: string;
   args: string[];
   content: string;

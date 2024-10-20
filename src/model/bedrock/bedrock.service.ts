@@ -69,7 +69,7 @@ export class BedrockClient {
         case MODEL_IDS.CLAUDE:
           requestBody = {
             anthropic_version: "bedrock-2023-05-31",
-            max_tokens: 1000,
+            max_tokens: 100000, // the output is truncated causing parse errors because of the token limit.
             system: systemPrompt,
             temperature: options.temperature,
             messages: [

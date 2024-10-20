@@ -75,6 +75,32 @@ Then in the input tell the AI to make a move by typing `Lets play tic-tac-toe, y
 
 after each move update the input and let the AI know it is their turn by typing `I have made my move to position <0-8>, its your turn select a position on the board.`.
 
+Example Commands:
+
 improve the UI and UX.
 
 Display a help message on user input.
+
+generate example headings one through 6
+
+lets explore the index.html space increase the complexity of the command until we get errors.
+
+lets update_file public/styles.css
+
+now lets import it into our index.html file
+
+looks great. Now lets create a UI input and display add a help command.
+
+Update the CSS file to style our WOPR interface. This will give it a retro computer terminal look, with a dark background and green text.
+
+Ok now add a input and handle the help command. The input fontsize should be 16px.
+
+Create a single HTML file that simulates the WOPR interface from the movie War Games. The interface should have a retro computer look with a black background and green text. Include a header with the title "W.O.P.R." and subtitle "War Operation Plan Response". The main content area should display output messages and have an input field where users can type commands. Implement basic functionality for commands like "help", "games", and "login". The design should feature a CRT-like effect and a blinking cursor. Use inline CSS and JavaScript to keep everything in one file for easy implementation.
+
+ok lets try something totally the opposite. Create a super modern UI use color gradients. Choose a dark them that is ultra modern. Think Nike, techware, warcore, 8k, ultra-hd, highly detailed futuristic.
+
+Create a hyper-futuristic cyberpunk web interface set in the year 2424. The design should feature a dark background with neon colors, primarily cyan and magenta. Include glitch effects, holographic elements, and quantum-inspired animations. The layout should have a logo that says 'NEOX-2424' with a 3D glitch effect, a navigation menu with plasma-like buttons, and a hero section with a large glitchy 3D text saying 'Welcome to 2424'. Add three feature cards with holographic icons and plasma text describing advanced concepts like 'Quantum Consciousness', 'Nano-Molecular Reconstruction', and 'Time-Space Manipulation'. Use futuristic fonts, incorporate subtle background animations that suggest a quantum field, and ensure all interactive elements have sci-fi inspired hover effects. The overall aesthetic should evoke a sense of having transcended current technological limitations, blending humanity and advanced technology.
+
+ok now do something very much for young children, fun, playful, bright colors, toys.
+
+now what is something between the last two interfaces we created? Something that is fun and playful but also has a futuristic look.
