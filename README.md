@@ -75,7 +75,7 @@ Then in the input tell the AI to make a move by typing `Lets play tic-tac-toe, y
 
 after each move update the input and let the AI know it is their turn by typing `I have made my move to position <0-8>, its your turn select a position on the board.`.
 
-Example Commands:
+Example Web developer prompts Commands:
 
 improve the UI and UX.
 
@@ -104,3 +104,5 @@ Create a hyper-futuristic cyberpunk web interface set in the year 2424. The desi
 ok now do something very much for young children, fun, playful, bright colors, toys.
 
 now what is something between the last two interfaces we created? Something that is fun and playful but also has a futuristic look.
+
+Create a dark, futuristic web interface for a site called "Cyborg Nexus" that explores the fusion of human and machine. The design should feature a black background with neon blue accents, reminiscent of circuit boards and cybernetic enhancements. Include a header with a glowing logo and navigation menu, a hero section with a bold title about embracing cybernetic evolution, and three info cards highlighting aspects of human-machine integration like neural links and enhanced perception. Add an interactive section with a "Cybernetic Thought Generator" that displays random thoughts about the merging of biology and technology when clicked. The overall aesthetic should blend elements of cyberpunk, transhumanism, and introspective themes, creating an atmosphere of both technological advancement and existential contemplation. Use futuristic fonts, subtle circuit-like patterns in the background, and glowing effects to enhance the cyborg theme.
