@@ -17,6 +17,7 @@ interface Elements {
   fileUploadInput: HTMLInputElement;
   fileUploadButton: HTMLButtonElement;
   loadingEl: HTMLElement;
+  refreshButton: HTMLButtonElement;
 }
 
 export function renderApp() {
@@ -47,7 +48,13 @@ export function renderApp() {
         </div>
         <div class="editor-container">
           <div class="editor" style="display: none;">
+          <div class="file-explorer-container">
+            <div class="file-explorer-header">
+              <h3>File Explorer</h3>
+              <button id="refreshButton" title="Refresh Files">🔄</button>
+            </div>
             <div class="file-explorer"></div>
+            </div>
             <textarea id="editorInput" spellcheck="false"></textarea>
           </div>
           <div class="preview">
@@ -55,7 +62,13 @@ export function renderApp() {
             <iframe></iframe>
           </div>
         </div>
-        <div class="terminal"></div>
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <button id="toggleTerminal" aria-expanded="true">▼ Terminal</button>
+            <div class="terminal-resizer"></div>
+          </div>
+          <div class="terminal"></div>
+        </div>
       </div>
     </div>
   `;
@@ -78,6 +91,9 @@ export function getElements(): Elements {
       "#fileUploadButton"
     ) as HTMLButtonElement,
     loadingEl: document.querySelector(".loading-indicator") as HTMLElement,
+    refreshButton: document.querySelector(
+      "#refreshButton"
+    ) as HTMLButtonElement,
   };
 }
 
@@ -213,47 +229,74 @@ function setupChatHandlers() {
 
 export async function setupFileExplorer(webcontainer: WebContainer) {
   const fileExplorer = getElements().fileExplorer;
-  const files = await webcontainer.fs.readdir("/");
+  const refreshButton = getElements().refreshButton;
 
   async function createFileExplorerHTML(dir: string): Promise<string> {
-    const items = await webcontainer.fs.readdir(dir);
-    let html = '<ul class="file-list">';
-    for (const item of items) {
-      const path = `${dir}/${item}`;
-      // const stat = await webcontainer.fs.stat(path);
-      const isDirectory = false; //stat.type === 'directory';
-      const icon = isDirectory ? "📁" : "📄";
-      html += `<li class="file-item" data-path="${path}" data-type="${
-        isDirectory ? "directory" : "file"
-      }">${icon} ${item}`;
-      if (isDirectory) {
-        html += await createFileExplorerHTML(path);
+    try {
+      const items = await webcontainer.fs.readdir(dir, { withFileTypes: true });
+      let html = '<ul class="file-list">';
+      for (const item of items) {
+        const path = `${dir}/${item.name}`;
+        const isDirectory = item.isDirectory();
+        const icon = isDirectory ? "📁" : "📄";
+        html += `<li class="file-item" data-path="${path}" data-type="${
+          isDirectory ? "directory" : "file"
+        }">${icon} ${item.name}`;
+        if (isDirectory) {
+          html += await createFileExplorerHTML(path);
+        }
+        html += "</li>";
       }
-      html += "</li>";
+      html += "</ul>";
+      return html;
+    } catch (error) {
+      console.error(`Error reading directory ${dir}:`, error);
+      return `<li class="error">Error reading ${dir}</li>`;
     }
-    html += "</ul>";
-    return html;
   }
 
-  fileExplorer.innerHTML = await createFileExplorerHTML("/");
+  async function refreshFileExplorer() {
+    try {
+      fileExplorer.innerHTML = await createFileExplorerHTML("/");
+    } catch (error) {
+      console.error("Error refreshing file explorer:", error);
+      fileExplorer.innerHTML = "<p>Error refreshing file explorer</p>";
+    }
+  }
+
+  await refreshFileExplorer();
 
   fileExplorer.addEventListener("click", async (event) => {
     const target = event.target as HTMLElement;
-    if (
-      target.classList.contains("file-item") &&
-      target.getAttribute("data-type") === "file"
-    ) {
+    if (target.classList.contains("file-item")) {
       const filePath = target.getAttribute("data-path") as string;
-      const file = await webcontainer.fs.readFile(filePath, "utf-8");
-      const editorInput = document.querySelector(
-        "#editorInput"
-      ) as HTMLTextAreaElement;
-      editorInput.value = file;
+      const fileType = target.getAttribute("data-type");
 
-      // Add event listener for input changes
-      editorInput.oninput = async () => {
-        await webcontainer.fs.writeFile(filePath, editorInput.value);
-      };
+      if (fileType === "file") {
+        try {
+          const file = await webcontainer.fs.readFile(filePath, "utf-8");
+          const editorInput = document.querySelector(
+            "#editorInput"
+          ) as HTMLTextAreaElement;
+          editorInput.value = file;
+
+          // Add event listener for input changes
+          editorInput.oninput = async () => {
+            await webcontainer.fs.writeFile(filePath, editorInput.value);
+          };
+        } catch (error) {
+          console.error(`Error reading file ${filePath}:`, error);
+        }
+      } else if (fileType === "directory") {
+        // Toggle directory expansion
+        const sublist = target.querySelector("ul");
+        if (sublist) {
+          sublist.style.display =
+            sublist.style.display === "none" ? "block" : "none";
+        }
+      }
     }
   });
+
+  refreshButton.addEventListener("click", refreshFileExplorer);
 }
