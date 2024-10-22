@@ -22,6 +22,7 @@ interface Elements {
   fileUploadInput: HTMLInputElement;
   fileUploadButton: HTMLButtonElement;
   loadingEl: HTMLElement;
+  refreshButton: HTMLButtonElement;
 }
 
 export function renderApp() {
@@ -52,7 +53,13 @@ export function renderApp() {
         </div>
         <div class="editor-container">
           <div class="editor" style="display: none;">
+          <div class="file-explorer-container">
+            <div class="file-explorer-header">
+              <h3>File Explorer</h3>
+              <button id="refreshButton" title="Refresh Files">🔄</button>
+            </div>
             <div class="file-explorer"></div>
+            </div>
             <textarea id="editorInput" spellcheck="false"></textarea>
           </div>
           <div class="preview">
@@ -85,6 +92,9 @@ export function getElements(): Elements {
       "#fileUploadButton"
     ) as HTMLButtonElement,
     loadingEl: document.querySelector(".loading-indicator") as HTMLElement,
+    refreshButton: document.querySelector(
+      "#refreshButton"
+    ) as HTMLButtonElement,
   };
 }
 
@@ -229,6 +239,7 @@ function setupChatHandlers() {
 
 export async function setupFileExplorer(webcontainer: WebContainer) {
   const fileExplorer = getElements().fileExplorer;
+  const refreshButton = getElements().refreshButton;
 
   async function createFileExplorerHTML(dir: string): Promise<string> {
     try {
@@ -254,42 +265,48 @@ export async function setupFileExplorer(webcontainer: WebContainer) {
     }
   }
 
-  try {
-    fileExplorer.innerHTML = await createFileExplorerHTML("/");
+  async function refreshFileExplorer() {
+    try {
+      fileExplorer.innerHTML = await createFileExplorerHTML("/");
+    } catch (error) {
+      console.error("Error refreshing file explorer:", error);
+      fileExplorer.innerHTML = "<p>Error refreshing file explorer</p>";
+    }
+  }
 
-    fileExplorer.addEventListener("click", async (event) => {
-      const target = event.target as HTMLElement;
-      if (target.classList.contains("file-item")) {
-        const filePath = target.getAttribute("data-path") as string;
-        const fileType = target.getAttribute("data-type");
+  await refreshFileExplorer();
 
-        if (fileType === "file") {
-          try {
-            const file = await webcontainer.fs.readFile(filePath, "utf-8");
-            const editorInput = document.querySelector(
-              "#editorInput"
-            ) as HTMLTextAreaElement;
-            editorInput.value = file;
+  fileExplorer.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains("file-item")) {
+      const filePath = target.getAttribute("data-path") as string;
+      const fileType = target.getAttribute("data-type");
 
-            // Add event listener for input changes
-            editorInput.oninput = async () => {
-              await webcontainer.fs.writeFile(filePath, editorInput.value);
-            };
-          } catch (error) {
-            console.error(`Error reading file ${filePath}:`, error);
-          }
-        } else if (fileType === "directory") {
-          // Toggle directory expansion
-          const sublist = target.querySelector("ul");
-          if (sublist) {
-            sublist.style.display =
-              sublist.style.display === "none" ? "block" : "none";
-          }
+      if (fileType === "file") {
+        try {
+          const file = await webcontainer.fs.readFile(filePath, "utf-8");
+          const editorInput = document.querySelector(
+            "#editorInput"
+          ) as HTMLTextAreaElement;
+          editorInput.value = file;
+
+          // Add event listener for input changes
+          editorInput.oninput = async () => {
+            await webcontainer.fs.writeFile(filePath, editorInput.value);
+          };
+        } catch (error) {
+          console.error(`Error reading file ${filePath}:`, error);
+        }
+      } else if (fileType === "directory") {
+        // Toggle directory expansion
+        const sublist = target.querySelector("ul");
+        if (sublist) {
+          sublist.style.display =
+            sublist.style.display === "none" ? "block" : "none";
         }
       }
-    });
-  } catch (error) {
-    console.error("Error setting up file explorer:", error);
-    fileExplorer.innerHTML = "<p>Error loading file explorer</p>";
-  }
+    }
+  });
+
+  refreshButton.addEventListener("click", refreshFileExplorer);
 }
