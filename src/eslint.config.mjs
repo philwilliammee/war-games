@@ -1,6 +1,6 @@
 // @ts-check
 
-import eslint from "@eslint/js";
+import eslint from "@eslint/js"; // peer dependency of typescript-eslint
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
