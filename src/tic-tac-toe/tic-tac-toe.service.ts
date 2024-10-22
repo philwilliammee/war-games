@@ -1,150 +1,99 @@
-import { ollamaClient } from "../model/ollama/ollama.client";
-import { Terminal } from "@xterm/xterm";
-import { WebContainer } from "@webcontainer/api";
-import { Message, Options } from "ollama";
-import { bedrockClient } from "../model/bedrock/bedrock.service";
-import { renderAiOutput } from "../render";
+// tic-tac-toe.service.ts
+
+import { BaseService } from "../base/base.service";
 import { SYSTEM_CONFIG_MESSAGE } from "./tic-tac-toe.bot";
+import { renderAiOutput } from "../render";
 import { ticTacToeModelPredict } from "./tfjs_model/loadmodel";
 
-const PLATFORM = import.meta.env.VITE_PLATFORM;
-const MODEL = import.meta.env.VITE_MODEL;
+export class TicTacToeService extends BaseService {
+  SYSTEM_CONFIG_MESSAGE = SYSTEM_CONFIG_MESSAGE;
 
-export class TicTacToeService {
-  chatContext: Message[] = [];
-  terminal: Terminal | null = null;
-  webcontainer: WebContainer | null = null;
+  async processCommand(
+    assistantResponse: string,
+    currentResponse: string
+  ): Promise<string> {
+    const commands = await this.extractCommands(assistantResponse);
+    if (commands.length === 0) {
+      return currentResponse;
+    }
 
-  async initializeChatContext(
-    terminal: Terminal,
-    webcontainer: WebContainer
-  ): Promise<void> {
-    this.chatContext = [
-      {
-        role: "assistant",
-        content: "HOW ARE YOU FEELING TODAY?", // the first message that Joshua says in the movie.
-      },
-    ].flat();
-    this.terminal = terminal;
-    this.webcontainer = webcontainer;
-    renderAiOutput("HOW ARE YOU FEELING TODAY?");
+    let updatedResponse = currentResponse;
+
+    for (let command of commands) {
+      let retryCount = 0;
+      const maxRetries = 3;
+      let executionSuccess = false;
+
+      while (retryCount < maxRetries && !executionSuccess) {
+        try {
+          const output = await this.executeCommandInWebContainer(command);
+          updatedResponse += `\n${output}`;
+
+          if (!/error:/i.test(output)) {
+            executionSuccess = true;
+          } else {
+            // Prepare error prompt
+            const errorPrompt = `Command output:\n${output}\nCommand run:\n${
+              command.command
+            } ${command.args.join(" ")}`;
+            const newMessages = this.prepareMessages(errorPrompt).messages;
+
+            const assistantRetryResponse = await this.sendChatRequest(
+              newMessages
+            );
+            updatedResponse += `\n${assistantRetryResponse}`;
+
+            // Extract new command from the assistant's response
+            const newCommandMatches = await this.extractCommands(
+              assistantRetryResponse
+            );
+            if (newCommandMatches && newCommandMatches.length > 0) {
+              command = newCommandMatches[0];
+            } else {
+              updatedResponse += "\nNo new command provided.";
+              break;
+            }
+          }
+        } catch (error: any) {
+          console.error("Error executing command:", error);
+          updatedResponse += `\nError executing command: ${error.message}`;
+        }
+        retryCount++;
+      }
+    }
+
+    return updatedResponse;
   }
 
+  // Override handleChat to include game state
   async handleChat(prompt: string): Promise<string> {
     const gameStateString = await this.getGameState();
     const promptPlusGameState = `The Current Game State is:\n${gameStateString}\n\n${prompt}`;
     const { messages } = this.prepareMessages(promptPlusGameState);
     const assistantResponse = await this.sendChatRequest(messages);
     renderAiOutput(assistantResponse);
+
     let finalAssistantResponse = assistantResponse;
 
-    const commandMatches = this.extractCommands(assistantResponse);
-    let commandCount = 0;
-
-    for (const match of commandMatches) {
-      if (commandCount >= 3) break;
-      const command = match.trim();
-      finalAssistantResponse = await this.processCommand(
-        command,
-        finalAssistantResponse
-      );
-      commandCount++;
-    }
+    finalAssistantResponse = await this.processCommand(
+      assistantResponse,
+      finalAssistantResponse
+    );
 
     return finalAssistantResponse;
   }
 
-  extractCommands(response: string): string[] {
-    return [...response.matchAll(/\[\[execute: (.+?)\]\]/g)].map(
-      (match) => match[1]
-    );
-  }
-
-  async processCommand(
-    command: string,
-    currentResponse: string
-  ): Promise<string> {
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    while (retryCount < maxRetries) {
-      const commandOutput = await this.executeCommandInWebContainer(command);
-      currentResponse += `\n${commandOutput}`;
-
-      const isError = /error:/i.test(commandOutput);
-      if (!isError) {
-        // Successful command execution; exit and return the response
-        return currentResponse;
-      }
-
-      // Prepare the prompt for chat request to determine the next action
-      const errorPrompt = `Command output:\n${commandOutput}\nCommand run:\n${command}`;
-      const newMessages = this.prepareMessages(errorPrompt).messages;
-      console.log("newMessages:", newMessages);
-
-      const assistantResponse = await this.sendChatRequest(newMessages);
-      renderAiOutput(assistantResponse); // Consider removing or handling this externally to keep concerns separated
-      currentResponse += `\n${assistantResponse}`;
-
-      const newCommandMatch = assistantResponse.match(/\[\[execute: (.+?)\]\]/);
-      if (newCommandMatch) {
-        // Update the command for the next iteration if a new command is suggested
-        command = newCommandMatch[1].trim();
-      } else {
-        // No new command provided by the assistant, stop retries
-        console.log("No new command provided by the assistant.");
-        break;
-      }
-
-      retryCount++;
-    }
-
-    return currentResponse;
-  }
-
-  prepareMessages(prompt: string): {
-    messages: Message[];
-    userMessage: Message;
-  } {
-    const now = new Date().toLocaleTimeString();
-    const userMessage = {
-      role: "user",
-      content: `${now}: ${prompt}`,
-    };
-
-    this.chatContext.push(userMessage);
-    this.truncateChatContext();
-    const messages = [
-      {
-        role: "system",
-        content: SYSTEM_CONFIG_MESSAGE,
-      },
-      ...this.chatContext,
-    ];
-
-    return { messages, userMessage };
-  }
-
-  truncateChatContext(): void {
-    const MAX_MESSAGES = 10;
-    if (this.chatContext.length > MAX_MESSAGES) {
-      this.chatContext = this.chatContext.slice(-MAX_MESSAGES);
-    }
-  }
-
+  // Specific method to get game state
   public async getGameState(): Promise<string> {
-    // bye bye pretty formatting it was making a javascript object string. we want json double quotes.
-    // const command = `node -e "
-    //   const util = require('util');
-    //   fetch('http://localhost:3111/state')
-    //     .then(res => res.json())
-    //     .then(data => console.log(util.inspect(data, { depth: null })))
-    // "`;
-    const command = `node -e "
-    fetch('http://localhost:3111/state')
-      .then(res => res.json())
-      .then(data => console.log(JSON.stringify(data)))
-  "`;
+    const command = {
+      command: "node",
+      args: ["-e"],
+      content: `
+      fetch('http://localhost:3111/state')
+        .then(res => res.json())
+        .then(data => console.log(JSON.stringify(data)))
+    `,
+    };
 
     let gameStateData = await this.executeCommandInWebContainer(command);
 
@@ -165,9 +114,7 @@ export class TicTacToeService {
     return gameStateData.trim();
   }
 
-  private async getModelPrediction(
-    ticTacToeBoard: ("X" | "O" | " " | "")[]
-  ): Promise<number> {
+  private async getModelPrediction(ticTacToeBoard: Board): Promise<number> {
     console.log("TicTacToe board input:", ticTacToeBoard); // Log the board input
     if (!ticTacToeBoard || !Array.isArray(ticTacToeBoard)) {
       throw new Error("Invalid tic-tac-toe board input");
@@ -178,7 +125,7 @@ export class TicTacToeService {
     return predictedMove;
   }
 
-  private mapBoardToModelInput(board: ("X" | "O" | " " | "")[]): number[] {
+  private mapBoardToModelInput(board: Board): number[] {
     if (!board || !Array.isArray(board)) {
       throw new Error(
         "Invalid board input: Board is either undefined or not an array"
@@ -194,93 +141,15 @@ export class TicTacToeService {
 
     return board.map((cell) => boardMap[cell]);
   }
-
-  async sendChatRequest(messages: Message[]): Promise<string> {
-    console.log("Sending chat request with messages:", messages);
-    const platform = PLATFORM;
-    const now = new Date().toLocaleTimeString();
-    try {
-      if (platform === "bedrock") {
-        const chatResponse = await bedrockClient.chat(messages, {
-          temperature: 0.6,
-        });
-        const assistantMessage = {
-          role: "assistant",
-          content: `${now}: ${chatResponse}`,
-        };
-        this.chatContext.push(assistantMessage);
-        return chatResponse;
-      } else {
-        const chatResponse = await ollamaClient.chat(
-          MODEL,
-          messages,
-          {} as Options
-        );
-
-        const assistantMessage = {
-          role: "assistant",
-          content: `${now}: ${chatResponse.message.content}`,
-        };
-        this.chatContext.push(assistantMessage);
-        return chatResponse.message.content;
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      throw new Error("An error occurred while processing the chat request.");
-    }
-  }
-
-  isCommandAllowed(command: string): boolean {
-    const allowedPatterns = [
-      /^node\s+/i, // Matches any command that starts with 'node' (case insensitive)
-      /.+/, // Matches anything else (i.e., bash commands)
-    ];
-
-    return allowedPatterns.some((pattern) => pattern.test(command.trim()));
-  }
-
-  async executeCommandInWebContainer(command: string) {
-    if (!this.webcontainer) {
-      throw new Error("WebContainer is not initialized.");
-    }
-
-    const args = command.match(/"[^"]+"|[^\s]+/g);
-    const cmd = args!.shift() as string;
-
-    const sanitizedArgs = args!.map((arg) => arg.replace(/^"|"$/g, ""));
-
-    console.log(`Executing command: ${cmd} with args:`, sanitizedArgs);
-    const process = await this.webcontainer.spawn(cmd, sanitizedArgs);
-    const terminal = this.terminal;
-    let output = "";
-    process.output.pipeTo(
-      new WritableStream({
-        write(data) {
-          // Use stripAnsiCodes here to remove the escape codes
-          const cleanData = stripAnsiCodes(data);
-          terminal!.write(cleanData);
-          output += cleanData;
-        },
-      })
-    );
-
-    await process.exit;
-
-    console.log("Final cleaned output:", output); // Check the cleaned output
-    return output.trim();
-  }
 }
 
-// Function to strip ANSI escape codes
-function stripAnsiCodes(str: string) {
-  return str.replace(/\x1B\[[0-?]*[ -\/]*[@-~]/g, "");
-}
-
-export const modelService = new TicTacToeService();
+export const ticTacToeService = new TicTacToeService();
 
 interface GameState {
-  board: ("X" | "O" | " " | "")[];
+  board: Board;
   currentPlayer: string;
   gameOver: boolean;
   availableMoves: number[];
 }
+
+export type Board = ("X" | "O" | " " | "")[];

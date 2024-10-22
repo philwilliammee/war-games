@@ -1,10 +1,15 @@
 // render.ts - Responsible for rendering the HTML layout and elements
 import "./style.css";
-import { modelService } from "./tic-tac-toe/tic-tac-toe.service";
-import * as showdown from "showdown";
+import { webDeveloperService } from "./web-developer/web-developer.service";
+// import * as showdown from "showdown";
 import { WebContainer } from "@webcontainer/api";
+import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
 
-const converter = new showdown.Converter();
+const module = import.meta.env.VITE_MODULE;
+const modelService =
+  module === "ticTacToe" ? ticTacToeService : webDeveloperService;
+
+// const converter = new showdown.Converter();
 
 interface Elements {
   editorArea: HTMLTextAreaElement;
@@ -59,16 +64,12 @@ export function renderApp() {
           </div>
           <div class="preview">
             <h2 style="text-align: center;">Welcome to War Games!</h2>
-            <iframe></iframe>
+            <div class="iframe-container">
+              <iframe></iframe>
+            </div>
           </div>
         </div>
-        <div class="terminal-container">
-          <div class="terminal-header">
-            <button id="toggleTerminal" aria-expanded="true">▼ Terminal</button>
-            <div class="terminal-resizer"></div>
-          </div>
-          <div class="terminal"></div>
-        </div>
+        <div class="terminal"></div>
       </div>
     </div>
   `;
@@ -114,12 +115,21 @@ export function renderTerminal(content: string) {
 }
 
 export function renderAiOutput(content: string) {
+  try {
+    const json = JSON.parse(content) as {
+      assistantResponse: string;
+      commands: any[];
+    };
+    content = json.assistantResponse;
+  } catch (error) {
+    console.error("Error parsing JSON:", error);
+  }
   if (typeof document !== "undefined") {
     const outputEl = document.querySelector(".ai-output") as HTMLElement;
     if (outputEl) {
       const messageDiv = document.createElement("div");
       messageDiv.className = "message ai-message";
-      messageDiv.innerHTML = converter.makeHtml(content);
+      messageDiv.textContent = content; // converter.makeHtml(content);
       outputEl.appendChild(messageDiv);
       outputEl.scrollTop = outputEl.scrollHeight;
     }
@@ -173,7 +183,7 @@ function setupChatHandlers() {
     messageDiv.className = "message user-message";
     messageDiv.innerHTML = `
       <div class="avatar">👤</div>
-      <div class="content">${converter.makeHtml(message)}</div>
+      <div class="content">${message}</div>
     `;
     outputEl.appendChild(messageDiv);
     outputEl.scrollTop = outputEl.scrollHeight;

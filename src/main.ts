@@ -1,6 +1,5 @@
 // main.ts - Main file of the application
 import { WebContainer } from "@webcontainer/api";
-import { files } from "./tic-tac-toe/tic-tac-toe.files";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
@@ -11,7 +10,15 @@ import {
   setupFileExplorer,
 } from "./render";
 import { setupTerminal } from "./setupTerminal";
-import { modelService as ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
+import { files as ticTacToeFiles } from "./tic-tac-toe/tic-tac-toe.files";
+import { files as webDeveloperFiles } from "./web-developer/web-developer.files";
+import { webDeveloperService } from "./web-developer/web-developer.service";
+import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
+
+const module = import.meta.env.VITE_MODULE;
+const modelService =
+  module === "ticTacToe" ? ticTacToeService : webDeveloperService;
+const files = module === "ticTacToe" ? ticTacToeFiles : webDeveloperFiles;
 
 const fitAddon = new FitAddon();
 let webcontainer: WebContainer;
@@ -24,7 +31,6 @@ window.addEventListener("load", async () => {
   if (!elements.editorArea || !elements.iframe) {
     throw new Error("Missing textarea or iframe");
   }
-  // this hsould probably be handled in editor.
   renderEditor(files["index.js"].file.contents);
 
   webcontainer = await WebContainer.boot();
@@ -42,7 +48,8 @@ window.addEventListener("load", async () => {
   });
 
   startDevServer();
-  await ticTacToeService.initializeChatContext(terminal, webcontainer);
+
+  await modelService.initializeChatContext(terminal, webcontainer);
 });
 
 async function startDevServer() {

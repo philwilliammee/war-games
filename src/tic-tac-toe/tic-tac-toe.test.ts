@@ -1,88 +1,131 @@
-// Import necessary libraries for testing
-import { describe, it, beforeEach, expect, vi } from "vitest";
-import { TicTacToeService } from "./tic-tac-toe.service";
+// tic-tac-toe.service.test.ts
 
-// Create an instance of TicTacToeService
+import { describe, it, beforeEach, expect, vi, afterEach } from "vitest";
+import { Board, TicTacToeService } from "./tic-tac-toe.service";
+
+// Mock external dependencies
+vi.mock("../render", () => ({
+  renderAiOutput: vi.fn(),
+}));
+
+vi.mock("../base/base.service", () => {
+  return {
+    BaseService: class {
+      prepareMessages = vi.fn((prompt: string) => ({
+        messages: [],
+        userMessage: { role: "user", content: prompt },
+      }));
+      sendChatRequest = vi.fn(async () => "Mocked assistant response");
+      executeCommandInWebContainer = vi.fn(async () => "Mocked command output");
+    },
+  };
+});
+
+vi.mock("./tfjs_model/loadmodel", () => ({
+  ticTacToeModelPredict: vi.fn(async () => 4),
+}));
+
 let ticTacToeService: TicTacToeService;
 
-// Setup before each test
 beforeEach(() => {
   ticTacToeService = new TicTacToeService();
 });
 
-// Test extractCommands method
-describe("TicTacToeService.extractCommands", () => {
-  it("should extract commands from response correctly", () => {
-    const response =
-      "Here is a command [[execute: ls -al]] and another [[execute: node -v]]";
-    const commands = ticTacToeService.extractCommands(response);
-    expect(commands).toEqual(["ls -al", "node -v"]);
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("TicTacToeService.mapBoardToModelInput", () => {
+  it("should correctly map the board symbols to numerical values", () => {
+    const board: Board = ["X", "O", " ", "", "X", "O", "X", " ", "O"];
+    const expectedOutput = [1, -1, 0, 0, 1, -1, 1, 0, -1];
+    const result = ticTacToeService["mapBoardToModelInput"](board);
+    expect(result).toEqual(expectedOutput);
   });
 
-  it("should return an empty array when no commands are found", () => {
-    const response = "No commands here!";
-    const commands = ticTacToeService.extractCommands(response);
-    expect(commands).toEqual([]);
+  it("should throw an error if board is invalid", () => {
+    expect(() => {
+      ticTacToeService["mapBoardToModelInput"](null as any);
+    }).toThrow(
+      "Invalid board input: Board is either undefined or not an array"
+    );
   });
 });
 
-// Test processCommand method
-describe("TicTacToeService.processCommand", () => {
-  it("should handle a successful command execution without error", async () => {
-    vi.spyOn(
-      ticTacToeService,
-      "executeCommandInWebContainer"
-    ).mockResolvedValue("Command executed successfully");
-    vi.spyOn(ticTacToeService, "sendChatRequest").mockResolvedValue(
-      "No more commands to execute"
-    );
-
-    const command = "echo Hello";
-    const currentResponse = "Initial response";
-    const updatedResponse = await ticTacToeService.processCommand(
-      command,
-      currentResponse
-    );
-
-    expect(updatedResponse).toEqual(
-      `${currentResponse}\nCommand executed successfully`
-    );
+describe("TicTacToeService.getModelPrediction", () => {
+  it("should return a predicted move index", async () => {
+    const board: Board = ["X", "O", " ", "", "X", "O", "X", " ", "O"];
+    const prediction = await ticTacToeService["getModelPrediction"](board);
+    expect(prediction).toBe(4);
   });
 
-  // Test processCommand FAIL method
-  it("should handle an unsuccessful command execution and eventually stop retrying", async () => {
-    // Mock executeCommandInWebContainer to always return an error
+  it("should throw an error if board is invalid", async () => {
+    await expect(
+      ticTacToeService["getModelPrediction"](null as any)
+    ).rejects.toThrow("Invalid tic-tac-toe board input");
+  });
+});
+
+describe("TicTacToeService.getGameState", () => {
+  beforeEach(() => {
     vi.spyOn(
       ticTacToeService,
       "executeCommandInWebContainer"
-    ).mockResolvedValue("error: Something went wrong");
+    ).mockImplementation(async (command: string) => {
+      const gameState = {
+        board: ["X", "O", " ", "", "X", "O", "X", " ", "O"],
+        currentPlayer: "X",
+        gameOver: false,
+        availableMoves: [2, 3, 7],
+      };
+      return JSON.stringify(gameState);
+    });
+  });
 
-    // Mock sendChatRequest to simulate a retry limit, after which no new command is provided
-    let retryCount = 0;
-    vi.spyOn(ticTacToeService, "sendChatRequest").mockImplementation(
-      async (messages) => {
-        retryCount++;
-        return retryCount > 2
-          ? "No new command provided."
-          : "[[execute: retry]]";
-      }
+  it("should fetch the game state and include model prediction", async () => {
+    const getModelPredictionSpy = vi.spyOn(
+      ticTacToeService as any,
+      "getModelPrediction"
     );
 
-    const command = "echo Hello";
-    const currentResponse = "Initial response";
-    const updatedResponse = await ticTacToeService.processCommand(
-      command,
-      currentResponse
+    const gameStateString = await ticTacToeService.getGameState();
+    expect(gameStateString).toContain(
+      '"board":["X","O"," ","","X","O","X"," ","O"]'
+    );
+    expect(gameStateString).toContain("Predicted move: 4");
+    expect(ticTacToeService.executeCommandInWebContainer).toHaveBeenCalled();
+    expect(getModelPredictionSpy).toHaveBeenCalled();
+  });
+});
+
+describe("TicTacToeService.handleChat", () => {
+  it("should handle chat, include game state, and process assistant response", async () => {
+    vi.spyOn(ticTacToeService, "getGameState").mockResolvedValue(
+      "Game State String"
+    );
+    vi.spyOn(ticTacToeService, "prepareMessages").mockReturnValue({
+      messages: [],
+      userMessage: { role: "user", content: "Prompt with game state" },
+    });
+    vi.spyOn(ticTacToeService, "sendChatRequest").mockResolvedValue(
+      "Assistant response"
+    );
+    vi.spyOn(ticTacToeService, "processCommand").mockResolvedValue(
+      "Final assistant response"
     );
 
-    // Log the updated response for debugging
-    console.log("updatedResponse", updatedResponse);
+    const prompt = "User prompt";
+    const result = await ticTacToeService.handleChat(prompt);
 
-    // Expect that the final updated response includes the error messages and the fact that no new command was provided
-    expect(updatedResponse).toContain("error: Something went wrong");
-    expect(updatedResponse).toContain("No new command provided.");
-    expect(updatedResponse.match(/error: Something went wrong/g)?.length).toBe(
-      3
-    ); // Ensure the error appears 3 times
+    expect(result).toBe("Final assistant response");
+    expect(ticTacToeService.getGameState).toHaveBeenCalled();
+    expect(ticTacToeService.prepareMessages).toHaveBeenCalledWith(
+      "The Current Game State is:\nGame State String\n\nUser prompt"
+    );
+    expect(ticTacToeService.sendChatRequest).toHaveBeenCalled();
+    expect(ticTacToeService.processCommand).toHaveBeenCalledWith(
+      "Assistant response",
+      "Assistant response"
+    );
   });
 });
