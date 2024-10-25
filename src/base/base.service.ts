@@ -66,52 +66,84 @@ export abstract class BaseService {
   }
 
   /**
-   * Extracts structured commands from the assistant's response.
-   * This function attempts to parse a JSON object containing commands.
-   * @param response - The assistant's response containing potential commands.
-   * @returns An array of extracted commands.
+   * Extracts the structured response from the assistant's reply.
+   * This function attempts to parse a JSON object containing the assistant's response and commands.
+   * @param response - The assistant's response containing the JSON object.
+   * @returns The parsed StructuredResponse object.
    * @throws Will throw an error if the response cannot be parsed as JSON.
    */
-  static async extractCommands(response: string): Promise<ExtractedCommand[]> {
-    console.log("Extracting commands from response:", response);
-    const trimmedCommand = response
-      .trim() // Remove leading and trailing whitespace.
-      .replace(/^[^\{]*/, "") // Remove everything before the first '{'.
-      .replace(/[^\}]*$/, ""); // Remove everything after the last '}'.
+  static async extractStructuredResponse(
+    response: string
+  ): Promise<StructuredResponse> {
+    console.log(
+      "Extracting structured response from assistant reply:",
+      response
+    );
 
-    // If the parse fails, an error will be thrown and caught in the calling function.
-    const parsedResponse = JSON.parse(trimmedCommand);
-
-    if (!parsedResponse.commands || !Array.isArray(parsedResponse.commands)) {
-      console.error("No commands found or commands format is invalid");
-      return [];
+    // Use a regular expression to extract the JSON object (from the first '{' to the last '}')
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("No JSON object found in response");
+      throw new Error("No JSON object found in assistant response");
     }
 
-    return parsedResponse.commands as ExtractedCommand[];
+    const jsonString = jsonMatch[0];
+
+    // Log any text before or after the JSON object
+    const preJsonText = response.substring(0, jsonMatch.index).trim();
+    const postJsonText = response
+      .substring(jsonMatch.index! + jsonString.length)
+      .trim();
+
+    if (preJsonText) {
+      console.log("Text before JSON:", preJsonText);
+    }
+    if (postJsonText) {
+      console.log("Text after JSON:", postJsonText);
+    }
+
+    // Parse the JSON string
+    let parsedResponse: StructuredResponse;
+    try {
+      parsedResponse = JSON.parse(jsonString);
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+      throw new Error("Failed to parse JSON from assistant response");
+    }
+
+    return parsedResponse;
   }
 
   async processCommand(
     assistantResponse: string,
     currentResponse: string
   ): Promise<string> {
+    let structuredResponse: StructuredResponse;
     let commands: ExtractedCommand[] = [];
 
     try {
-      // Try to extract commands from the assistant's response
-      commands = await BaseService.extractCommands(assistantResponse);
-    } catch (error: any) {
-      console.error("Error extracting commands:", error);
-      const errorPrompt = `An error occurred while extracting commands: ${error.message}. Please provide the commands in the correct format.`;
-
-      // Handle the error and get new commands
-      const { newCommands, updatedResponse } = await this.handleCommandError(
-        errorPrompt,
-        currentResponse
+      // Try to extract the structured response from the assistant's reply
+      structuredResponse = await BaseService.extractStructuredResponse(
+        assistantResponse
       );
-      commands = newCommands;
+      // Update currentResponse with the assistant's message
+      currentResponse = structuredResponse.assistantResponse;
+      // Get the list of commands
+      commands = structuredResponse.commands || [];
+    } catch (error: any) {
+      console.error("Error extracting structured response:", error);
+      const errorPrompt = `An error occurred while extracting the structured response: ${error.message}. Please provide the response in the correct JSON format.`;
+
+      // Handle the error and get a new structured response
+      const { newStructuredResponse, updatedResponse } =
+        await this.handleCommandError(errorPrompt, currentResponse);
+
+      structuredResponse = newStructuredResponse;
       currentResponse = updatedResponse;
+      commands = structuredResponse.commands || [];
     }
 
+    // Proceed to execute the commands
     const maxCommands = 3;
     let commandCount = 0;
 
@@ -128,10 +160,12 @@ export abstract class BaseService {
         if (/error:/i.test(output)) {
           const errorPrompt = `Error executing command '${command.command}': ${output}. Please correct the command.`;
 
-          // Handle the error and get new commands
-          const { newCommands, updatedResponse } =
+          // Handle the error and get a new structured response
+          const { newStructuredResponse, updatedResponse } =
             await this.handleCommandError(errorPrompt, currentResponse);
-          commands.push(...newCommands);
+
+          // Update the commands list with new commands
+          commands.push(...(newStructuredResponse.commands || []));
           currentResponse = updatedResponse;
         }
       } catch (error: any) {
@@ -148,21 +182,29 @@ export abstract class BaseService {
   private async handleCommandError(
     errorPrompt: string,
     currentResponse: string
-  ): Promise<{ newCommands: ExtractedCommand[]; updatedResponse: string }> {
+  ): Promise<{
+    newStructuredResponse: StructuredResponse;
+    updatedResponse: string;
+  }> {
     const { messages } = this.prepareMessages(errorPrompt);
     const assistantRetryResponse = await this.sendChatRequest(messages);
     renderAiOutput(assistantRetryResponse);
     currentResponse += `\n${assistantRetryResponse}`;
 
-    // Extract new commands from the assistant's response
-    let newCommands: ExtractedCommand[] = [];
+    // Extract new structured response from the assistant's reply
+    let newStructuredResponse: StructuredResponse = {
+      assistantResponse: "",
+      commands: [],
+    };
     try {
-      newCommands = await BaseService.extractCommands(assistantRetryResponse);
+      newStructuredResponse = await BaseService.extractStructuredResponse(
+        assistantRetryResponse
+      );
     } catch (error: any) {
-      console.error("Error extracting commands after retry:", error);
+      console.error("Error extracting structured response after retry:", error);
     }
 
-    return { newCommands, updatedResponse: currentResponse };
+    return { newStructuredResponse, updatedResponse: currentResponse };
   }
 
   /**

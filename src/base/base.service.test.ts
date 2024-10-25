@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BaseService } from "./base.service";
 import { Terminal } from "@xterm/xterm";
 import { WebContainer } from "@webcontainer/api";
-import { renderAiOutput } from "../render";
 
 // Mock the dependencies
 vi.mock("@xterm/xterm", () => {
@@ -31,6 +30,7 @@ vi.mock("@webcontainer/api", () => {
 
       fs = {
         writeFile: vi.fn().mockResolvedValue(undefined),
+        mkdir: vi.fn().mockResolvedValue(undefined),
       };
     },
   };
@@ -63,29 +63,6 @@ vi.mock("../render", () => {
 // Create a concrete subclass of BaseService for testing
 class TestService extends BaseService {
   SYSTEM_CONFIG_MESSAGE = "System configuration message for testing.";
-
-  async processCommand(
-    assistantResponse: string,
-    currentResponse: string
-  ): Promise<string> {
-    const commands = await this.extractCommands(assistantResponse);
-    if (commands.length === 0) {
-      return currentResponse;
-    }
-
-    let updatedResponse = currentResponse;
-
-    for (const command of commands) {
-      try {
-        const output = await this.executeCommandInWebContainer(command);
-        updatedResponse += `\n${output}`;
-      } catch (error: any) {
-        updatedResponse += `\nError executing command: ${error.message}`;
-      }
-    }
-
-    return updatedResponse;
-  }
 }
 
 describe("BaseService", () => {
@@ -105,9 +82,9 @@ describe("BaseService", () => {
     vi.clearAllMocks();
   });
 
-  // Add tests for extractCommands method
-  describe("BaseService.extractCommands", () => {
-    it("should extract commands from structured response correctly", async () => {
+  // Tests for extractStructuredResponse method
+  describe("BaseService.extractStructuredResponse", () => {
+    it("should extract structured response correctly", async () => {
       const response = JSON.stringify({
         assistantResponse: "Here are the commands.",
         commands: [
@@ -115,11 +92,16 @@ describe("BaseService", () => {
           { command: "node", args: ["-v"], content: "" },
         ],
       });
-      const commands = await service.extractCommands(response);
-      expect(commands).toEqual([
-        { command: "ls", args: ["-al"], content: "" },
-        { command: "node", args: ["-v"], content: "" },
-      ]);
+      const structuredResponse = await BaseService.extractStructuredResponse(
+        response
+      );
+      expect(structuredResponse).toEqual({
+        assistantResponse: "Here are the commands.",
+        commands: [
+          { command: "ls", args: ["-al"], content: "" },
+          { command: "node", args: ["-v"], content: "" },
+        ],
+      });
     });
 
     it("should extract update_file command with content from structured response correctly", async () => {
@@ -133,17 +115,22 @@ describe("BaseService", () => {
           },
         ],
       });
-      const commands = await service.extractCommands(response);
-      expect(commands).toEqual([
-        {
-          command: "update_file",
-          args: ["/public/index.html"],
-          content: "<html><body>Hello World</body></html>",
-        },
-      ]);
+      const structuredResponse = await BaseService.extractStructuredResponse(
+        response
+      );
+      expect(structuredResponse).toEqual({
+        assistantResponse: "Here is the update command.",
+        commands: [
+          {
+            command: "update_file",
+            args: ["/public/index.html"],
+            content: "<html><body>Hello World</body></html>",
+          },
+        ],
+      });
 
       // Execute the command to trigger the writeFile mock
-      for (const command of commands) {
+      for (const command of structuredResponse.commands) {
         await service.executeCommandInWebContainer(command);
       }
 
@@ -154,20 +141,48 @@ describe("BaseService", () => {
       );
     });
 
-    it("should return an empty array when no commands are found in structured response", async () => {
-      const response = JSON.stringify({
-        assistantResponse: "No commands here!",
-        commands: [],
+    it("should handle responses with extra text before and after JSON", async () => {
+      const response = `
+        Some text before the JSON.
+        {
+          "assistantResponse": "Here is the command.",
+          "commands": [
+            {
+              "command": "echo",
+              "args": ["Hello, World!"],
+              "content": ""
+            }
+          ]
+        }
+        Some text after the JSON.
+      `;
+      const structuredResponse = await BaseService.extractStructuredResponse(
+        response
+      );
+      expect(structuredResponse).toEqual({
+        assistantResponse: "Here is the command.",
+        commands: [
+          {
+            command: "echo",
+            args: ["Hello, World!"],
+            content: "",
+          },
+        ],
       });
-      const commands = await service.extractCommands(response);
-      expect(commands).toEqual([]);
+    });
+
+    it("should throw an error when no JSON object is found", async () => {
+      const response = "No JSON here!";
+      await expect(
+        BaseService.extractStructuredResponse(response)
+      ).rejects.toThrow("No JSON object found in assistant response");
     });
   });
 
-  // Add tests for processCommand method
+  // Tests for processCommand method
   describe("BaseService.processCommand", () => {
-    it("should execute node command to calculate the square root of a number", async () => {
-      const response = JSON.stringify({
+    it("should process commands and update current response", async () => {
+      const assistantResponse = JSON.stringify({
         assistantResponse: "Here is the command to calculate the square root.",
         commands: [
           {
@@ -177,14 +192,6 @@ describe("BaseService", () => {
           },
         ],
       });
-      const commands = await service.extractCommands(response);
-      expect(commands).toEqual([
-        {
-          command: "node",
-          args: ["-e"],
-          content: "console.log(Math.sqrt(16))",
-        },
-      ]);
 
       // Mock spawn to simulate command execution
       webcontainer.spawn = vi.fn().mockResolvedValue({
@@ -196,8 +203,71 @@ describe("BaseService", () => {
         exit: Promise.resolve(0),
       });
 
-      const output = await service.executeCommandInWebContainer(commands[0]);
-      expect(output).toBe("4");
+      const currentResponse = "";
+      const finalResponse = await service.processCommand(
+        assistantResponse,
+        currentResponse
+      );
+
+      expect(finalResponse).toContain(
+        "Here is the command to calculate the square root."
+      );
+      expect(finalResponse).toContain("Command Output:\n4");
     });
+
+    // it("should handle errors in command execution and request correction", async () => {
+    //   const assistantResponse = JSON.stringify({
+    //     assistantResponse: "Here is a faulty command.",
+    //     commands: [
+    //       {
+    //         command: "node",
+    //         args: ["-e"],
+    //         content: "console.lo(Math.sqrt(16))", // Intentional typo 'console.lo'
+    //       },
+    //     ],
+    //   });
+
+    //   // Mock executeCommandInWebContainer to simulate command execution error
+    //   vi.spyOn(service, "executeCommandInWebContainer").mockImplementation(
+    //     async (command: ExtractedCommand) => {
+    //       if (command.content.includes("console.lo")) {
+    //         // Simulate error output
+    //         return "ReferenceError: console.lo is not defined";
+    //       } else {
+    //         // Simulate correct output
+    //         return "4";
+    //       }
+    //     }
+    //   );
+
+    //   // Mock sendChatRequest to simulate assistant's correction
+    //   service.sendChatRequest = vi.fn().mockResolvedValue(
+    //     JSON.stringify({
+    //       assistantResponse: "Sorry about that. Here is the corrected command.",
+    //       commands: [
+    //         {
+    //           command: "node",
+    //           args: ["-e"],
+    //           content: "console.log(Math.sqrt(16))",
+    //         },
+    //       ],
+    //     })
+    //   );
+
+    //   const currentResponse = "";
+    //   const finalResponse = await service.processCommand(
+    //     assistantResponse,
+    //     currentResponse
+    //   );
+
+    //   expect(finalResponse).toContain("Here is a faulty command.");
+    //   expect(finalResponse).toContain(
+    //     "Error executing command 'node': ReferenceError: console.lo is not defined"
+    //   );
+    //   expect(finalResponse).toContain(
+    //     "Sorry about that. Here is the corrected command."
+    //   );
+    //   expect(finalResponse).toContain("Command Output:\n4");
+    // });
   });
 });

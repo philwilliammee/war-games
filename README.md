@@ -106,3 +106,13 @@ ok now do something very much for young children, fun, playful, bright colors, t
 now what is something between the last two interfaces we created? Something that is fun and playful but also has a futuristic look.
 
 Create a dark, futuristic web interface for a site called "Cyborg Nexus" that explores the fusion of human and machine. The design should feature a black background with neon blue accents, reminiscent of circuit boards and cybernetic enhancements. Include a header with a glowing logo and navigation menu, a hero section with a bold title about embracing cybernetic evolution, and three info cards highlighting aspects of human-machine integration like neural links and enhanced perception. Add an interactive section with a "Cybernetic Thought Generator" that displays random thoughts about the merging of biology and technology when clicked. The overall aesthetic should blend elements of cyberpunk, transhumanism, and introspective themes, creating an atmosphere of both technological advancement and existential contemplation. Use futuristic fonts, subtle circuit-like patterns in the background, and glowing effects to enhance the cyborg theme.
+
+## simplified instructions
+
+create a very simple html page at public/index.html
+
+ok now make it more eleborate import the styles.css and index.js update the html to have a button the index.js should prevent default on the button, and show an alert message.
+
+ok now add the index.js handler.
+
+Ok now be more creative lets test the capabilities of the your control over the system. Work incrementally let make another incremental change.

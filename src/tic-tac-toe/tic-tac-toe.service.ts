@@ -8,63 +8,6 @@ import { ticTacToeModelPredict } from "./tfjs_model/loadmodel";
 export class TicTacToeService extends BaseService {
   SYSTEM_CONFIG_MESSAGE = SYSTEM_CONFIG_MESSAGE;
 
-  async processCommand(
-    assistantResponse: string,
-    currentResponse: string
-  ): Promise<string> {
-    const commands = await this.extractCommands(assistantResponse);
-    if (commands.length === 0) {
-      return currentResponse;
-    }
-
-    let updatedResponse = currentResponse;
-
-    for (let command of commands) {
-      let retryCount = 0;
-      const maxRetries = 3;
-      let executionSuccess = false;
-
-      while (retryCount < maxRetries && !executionSuccess) {
-        try {
-          const output = await this.executeCommandInWebContainer(command);
-          updatedResponse += `\n${output}`;
-
-          if (!/error:/i.test(output)) {
-            executionSuccess = true;
-          } else {
-            // Prepare error prompt
-            const errorPrompt = `Command output:\n${output}\nCommand run:\n${
-              command.command
-            } ${command.args.join(" ")}`;
-            const newMessages = this.prepareMessages(errorPrompt).messages;
-
-            const assistantRetryResponse = await this.sendChatRequest(
-              newMessages
-            );
-            updatedResponse += `\n${assistantRetryResponse}`;
-
-            // Extract new command from the assistant's response
-            const newCommandMatches = await this.extractCommands(
-              assistantRetryResponse
-            );
-            if (newCommandMatches && newCommandMatches.length > 0) {
-              command = newCommandMatches[0];
-            } else {
-              updatedResponse += "\nNo new command provided.";
-              break;
-            }
-          }
-        } catch (error: any) {
-          console.error("Error executing command:", error);
-          updatedResponse += `\nError executing command: ${error.message}`;
-        }
-        retryCount++;
-      }
-    }
-
-    return updatedResponse;
-  }
-
   // Override handleChat to include game state
   async handleChat(prompt: string): Promise<string> {
     const gameStateString = await this.getGameState();
