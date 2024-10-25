@@ -116,7 +116,13 @@ export function renderTerminal(content: string) {
 
 export function renderAiOutput(content: string) {
   try {
-    const json = JSON.parse(content) as {
+    // why are we parsing this here. This should be done in the service, and passed as extracted command.
+    const trimmedCommand = content
+      .trim() // Remove leading and trailing whitespace.
+      .replace(/^[^\{]*/, "") // Remove everything before the first '{'.
+      .replace(/[^\}]*$/, ""); // Remove everything after the last '}'.
+
+    const json = JSON.parse(trimmedCommand) as {
       assistantResponse: string;
       commands: any[];
     };

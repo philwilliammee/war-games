@@ -25,10 +25,11 @@ export abstract class BaseService {
     terminal: Terminal,
     webcontainer: WebContainer
   ): Promise<void> {
-    const content = JSON.stringify({
+    const aiResponse: StructuredResponse = {
       assistantResponse: "HOW ARE YOU FEELING TODAY?",
       commands: [],
-    });
+    };
+    const content = JSON.stringify(aiResponse, null, 2);
     this.chatContext = [
       {
         role: "assistant",
@@ -50,6 +51,7 @@ export abstract class BaseService {
     const promptWithTimestamp = `${prompt}`;
     const { messages } = this.prepareMessages(promptWithTimestamp);
     const assistantResponse = await this.sendChatRequest(messages);
+
     renderAiOutput(assistantResponse);
 
     let finalAssistantResponse = assistantResponse;
@@ -70,36 +72,98 @@ export abstract class BaseService {
    * @returns An array of extracted commands.
    * @throws Will throw an error if the response cannot be parsed as JSON.
    */
-  async extractCommands(response: string): Promise<ExtractedCommand[]> {
+  static async extractCommands(response: string): Promise<ExtractedCommand[]> {
     console.log("Extracting commands from response:", response);
-    let parsedResponse;
+    const trimmedCommand = response
+      .trim() // Remove leading and trailing whitespace.
+      .replace(/^[^\{]*/, "") // Remove everything before the first '{'.
+      .replace(/[^\}]*$/, ""); // Remove everything after the last '}'.
+
     // If the parse fails, an error will be thrown and caught in the calling function.
-    parsedResponse = JSON.parse(
-      response
-        .trim() // Remove leading and trailing whitespace.
-        .replace(/^[^\{]*/, "") // Remove everything before the first '{'.
-        .replace(/[^\}]*$/, "") // Remove everything after the last '}'.
-    );
+    const parsedResponse = JSON.parse(trimmedCommand);
 
     if (!parsedResponse.commands || !Array.isArray(parsedResponse.commands)) {
       console.error("No commands found or commands format is invalid");
       return [];
     }
 
-    return parsedResponse.commands;
+    return parsedResponse.commands as ExtractedCommand[];
   }
 
-  /**
-   * Abstract method to process commands from the assistant's response.
-   * This must be implemented by subclasses to define command processing logic.
-   * @param assistantResponse - The original response from the assistant.
-   * @param currentResponse - The current state of the response after initial processing.
-   * @returns The updated response after processing commands.
-   */
-  abstract processCommand(
+  async processCommand(
     assistantResponse: string,
     currentResponse: string
-  ): Promise<string>;
+  ): Promise<string> {
+    let commands: ExtractedCommand[] = [];
+
+    try {
+      // Try to extract commands from the assistant's response
+      commands = await BaseService.extractCommands(assistantResponse);
+    } catch (error: any) {
+      console.error("Error extracting commands:", error);
+      const errorPrompt = `An error occurred while extracting commands: ${error.message}. Please provide the commands in the correct format.`;
+
+      // Handle the error and get new commands
+      const { newCommands, updatedResponse } = await this.handleCommandError(
+        errorPrompt,
+        currentResponse
+      );
+      commands = newCommands;
+      currentResponse = updatedResponse;
+    }
+
+    const maxCommands = 3;
+    let commandCount = 0;
+
+    for (const command of commands) {
+      if (commandCount >= maxCommands) break;
+      console.log("Executing command:", command);
+
+      try {
+        // Execute the command
+        const output = await this.executeCommandInWebContainer(command);
+        currentResponse += `\nCommand Output:\n${output}`;
+
+        // Check for errors in the output
+        if (/error:/i.test(output)) {
+          const errorPrompt = `Error executing command '${command.command}': ${output}. Please correct the command.`;
+
+          // Handle the error and get new commands
+          const { newCommands, updatedResponse } =
+            await this.handleCommandError(errorPrompt, currentResponse);
+          commands.push(...newCommands);
+          currentResponse = updatedResponse;
+        }
+      } catch (error: any) {
+        console.error("Error executing command:", error);
+        currentResponse += `\nError executing command: ${error.message}`;
+      }
+
+      commandCount++;
+    }
+
+    return currentResponse;
+  }
+
+  private async handleCommandError(
+    errorPrompt: string,
+    currentResponse: string
+  ): Promise<{ newCommands: ExtractedCommand[]; updatedResponse: string }> {
+    const { messages } = this.prepareMessages(errorPrompt);
+    const assistantRetryResponse = await this.sendChatRequest(messages);
+    renderAiOutput(assistantRetryResponse);
+    currentResponse += `\n${assistantRetryResponse}`;
+
+    // Extract new commands from the assistant's response
+    let newCommands: ExtractedCommand[] = [];
+    try {
+      newCommands = await BaseService.extractCommands(assistantRetryResponse);
+    } catch (error: any) {
+      console.error("Error extracting commands after retry:", error);
+    }
+
+    return { newCommands, updatedResponse: currentResponse };
+  }
 
   /**
    * Prepares the chat context for sending to the assistant by adding the user's message
@@ -278,4 +342,9 @@ export interface ExtractedCommand {
   command: string;
   args: string[];
   content: string;
+}
+
+export interface StructuredResponse {
+  assistantResponse: string;
+  commands: ExtractedCommand[];
 }
