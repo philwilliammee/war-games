@@ -3,61 +3,57 @@ import { WebContainer } from "@webcontainer/api";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
-import {
-  renderApp,
-  getElements,
-  renderEditor,
-  setupFileExplorer,
-} from "./render";
+import { renderApp, getElements } from "./render";
 import { setupTerminal } from "./setupTerminal";
-import { files as ticTacToeFiles } from "./tic-tac-toe/tic-tac-toe.files";
-import { files as webDeveloperFiles } from "./web-developer/web-developer.files";
-import { webDeveloperService } from "./web-developer/web-developer.service";
-import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
+import { TicTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
+import { BaseService } from "./base/base.service";
+import { TsDeveloperService } from "./ts-developer/ts-developer.service";
+import { WebDeveloperService } from "./web-developer/web-developer.service";
 
 const module = import.meta.env.VITE_MODULE;
-const modelService =
-  module === "ticTacToe" ? ticTacToeService : webDeveloperService;
-const files = module === "ticTacToe" ? ticTacToeFiles : webDeveloperFiles;
+let modelService: BaseService;
+switch (module) {
+  case "webDeveloper":
+    modelService = new WebDeveloperService();
+    break;
+  case "ticTacToe":
+    modelService = new TicTacToeService();
+    break;
+  case "tsDeveloper":
+    modelService = new TsDeveloperService();
+    break;
+  default:
+    modelService = new TicTacToeService();
+    break;
+}
 
 const fitAddon = new FitAddon();
-let webcontainer: WebContainer;
 
-renderApp();
+renderApp(modelService);
 const elements = getElements();
 const terminal = setupTerminal(elements.terminalEl, fitAddon);
 
+// Load the App.
 window.addEventListener("load", async () => {
   if (!elements.editorArea || !elements.iframe) {
     throw new Error("Missing textarea or iframe");
   }
-  renderEditor(files["index.js"].file.contents);
-
-  webcontainer = await WebContainer.boot();
-  await webcontainer.mount(files);
-
-  await setupFileExplorer(webcontainer);
-
-  const shellProcess = await startShell(terminal);
-  window.addEventListener("resize", () => {
-    fitAddon.fit();
-    shellProcess.resize({
-      cols: terminal.cols,
-      rows: terminal.rows,
-    });
-  });
-
-  startDevServer();
-
-  await modelService.initializeChatContext(terminal, webcontainer);
+  const webcontainer = await WebContainer.boot();
+  modelService.boot(terminal, webcontainer);
 });
 
-async function startDevServer() {
+/**
+ * Install dependencies and start the Express server, and open the iframe view.
+ */
+export async function startDevServer(webcontainer: WebContainer | null) {
+  if (!webcontainer) {
+    throw new Error("WebContainer is not initialized");
+  }
   // Install dependencies
-  await installDependencies();
+  await installDependencies(webcontainer);
 
   // Run `npm run start` to start the Express app
-  await runStartCommand();
+  await runStartCommand(webcontainer);
   webcontainer.on("server-ready", (port, url) => {
     if (elements.iframe) {
       elements.iframe.src = url;
@@ -65,7 +61,7 @@ async function startDevServer() {
   });
 }
 
-async function runStartCommand() {
+async function runStartCommand(webcontainer: WebContainer) {
   const startProcess = await webcontainer.spawn("npm", ["run", "start"]);
 
   startProcess.output.pipeTo(
@@ -78,7 +74,7 @@ async function runStartCommand() {
   // don't exit leave the game open.
 }
 
-async function installDependencies() {
+async function installDependencies(webcontainer: WebContainer) {
   // Install dependencies
   const installProcess = await webcontainer.spawn("npm", ["install"]);
 
@@ -93,7 +89,10 @@ async function installDependencies() {
   return installProcess.exit;
 }
 
-async function startShell(terminal: Terminal) {
+export async function startShell(
+  webcontainer: WebContainer,
+  terminal: Terminal
+) {
   const shellProcess = await webcontainer.spawn("jsh", {
     terminal: {
       cols: terminal.cols,
@@ -112,6 +111,14 @@ async function startShell(terminal: Terminal) {
   const input = shellProcess.input.getWriter();
   terminal.onData((data) => {
     input.write(data);
+  });
+
+  window.addEventListener("resize", () => {
+    fitAddon.fit();
+    shellProcess.resize({
+      cols: terminal.cols,
+      rows: terminal.rows,
+    });
   });
 
   return shellProcess;

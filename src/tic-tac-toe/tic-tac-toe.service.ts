@@ -2,11 +2,29 @@
 
 import { BaseService } from "../base/base.service";
 import { SYSTEM_CONFIG_MESSAGE } from "./tic-tac-toe.bot";
-import { renderAiOutput } from "../render";
+import { renderAiOutput, renderEditor, setupFileExplorer } from "../render";
 import { ticTacToeModelPredict } from "./tfjs_model/loadmodel";
+import { WebContainer } from "@webcontainer/api";
+import { Terminal } from "@xterm/xterm";
+import { startShell, startDevServer } from "../main";
+import { files } from "./tic-tac-toe.files";
 
 export class TicTacToeService extends BaseService {
   SYSTEM_CONFIG_MESSAGE = SYSTEM_CONFIG_MESSAGE;
+
+  async boot(terminal: Terminal, webcontainer: WebContainer): Promise<void> {
+    renderEditor(files["index.js"].file.contents);
+
+    await webcontainer.mount(files);
+
+    await setupFileExplorer(webcontainer);
+
+    await startShell(webcontainer, terminal);
+
+    startDevServer(webcontainer);
+
+    await this.initializeChatContext(terminal, webcontainer);
+  }
 
   // Override handleChat to include game state
   async handleChat(prompt: string): Promise<string> {
@@ -85,8 +103,6 @@ export class TicTacToeService extends BaseService {
     return board.map((cell) => boardMap[cell]);
   }
 }
-
-export const ticTacToeService = new TicTacToeService();
 
 interface GameState {
   board: Board;

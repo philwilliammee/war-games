@@ -1,13 +1,7 @@
 // render.ts - Responsible for rendering the HTML layout and elements
+import { BaseService } from "./base/base.service";
 import "./style.css";
-import { webDeveloperService } from "./web-developer/web-developer.service";
-// import * as showdown from "showdown";
 import { WebContainer } from "@webcontainer/api";
-import { ticTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
-
-const module = import.meta.env.VITE_MODULE;
-const modelService =
-  module === "ticTacToe" ? ticTacToeService : webDeveloperService;
 
 // const converter = new showdown.Converter();
 
@@ -25,7 +19,7 @@ interface Elements {
   refreshButton: HTMLButtonElement;
 }
 
-export function renderApp() {
+export function renderApp(modelService: BaseService) {
   document.querySelector("#app")!.innerHTML = `
     <div class="main-container">
       <div class="left-column">
@@ -75,7 +69,7 @@ export function renderApp() {
   `;
 
   setupModeToggle();
-  setupChatHandlers();
+  setupChatHandlers(modelService);
 }
 
 export function getElements(): Elements {
@@ -163,7 +157,7 @@ function setupModeToggle() {
   });
 }
 
-function setupChatHandlers() {
+function setupChatHandlers(modelService: BaseService) {
   const elements = getElements();
 
   async function handleChatInput() {
