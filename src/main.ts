@@ -7,7 +7,7 @@ import { renderApp, getElements } from "./render";
 import { setupTerminal } from "./setupTerminal";
 import { TicTacToeService } from "./tic-tac-toe/tic-tac-toe.service";
 import { BaseService } from "./base/base.service";
-import { TsDeveloperService } from "./ts-developer/ts-developer.service";
+import { TsDeveloperService } from "./angular-developer/angular-developer.service";
 import { WebDeveloperService } from "./web-developer/web-developer.service";
 
 const module = import.meta.env.VITE_MODULE;
@@ -19,7 +19,7 @@ switch (module) {
   case "ticTacToe":
     modelService = new TicTacToeService();
     break;
-  case "tsDeveloper":
+  case "angularDeveloper":
     modelService = new TsDeveloperService();
     break;
   default:

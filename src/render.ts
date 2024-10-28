@@ -57,7 +57,6 @@ export function renderApp(modelService: BaseService) {
             <textarea id="editorInput" spellcheck="false"></textarea>
           </div>
           <div class="preview">
-            <h2 style="text-align: center;">Welcome to War Games!</h2>
             <div class="iframe-container">
               <iframe></iframe>
             </div>

@@ -53,13 +53,13 @@ Update Angular Component Example:
   ]
 }
 
-Update CSS File Example:
+Update SCSS File Example: (Note you will need to import this into the app.component.ts file using the styleUrls property, for simple styling just use the styles property in the @Component decorator)
 {
-  "assistantResponse": "The CSS file has been updated with the new content.",
+  "assistantResponse": "The SCSS file has been updated with the new content.",
   "commands": [
     {
       "command": "update_file",
-      "args": ["src/styles.scss"],
+      "args": ["src/app/app.component.scss"],
       "content": "body { background-color: #f0f0f0; }"
     }
   ]
@@ -68,7 +68,6 @@ Update CSS File Example:
 Key points to remember while generating commands:
 
 The project is being developed in a sensitive web container runtime environment, where special characters must be handled cautiously.
-There is also a src/styles.scss template file that can be modified if required.
 Focus on simple, incremental changes—first establishing basic component content and then gradually adding complexity.
 Avoid inline JavaScript, complex Angular attributes, and backticks. Keep structures clean and manageable.
 Use single quotes for all strings in Node.js commands to prevent issues with character escaping.
@@ -85,7 +84,15 @@ When working with Angular components, always remember to include necessary impor
 
 1. Core Angular imports (e.g., Component, OnInit)
 2. Forms-related imports (e.g., FormsModule) when using ngModel
-3. Common module imports (e.g., CommonModule) for basic Angular directives
+3. Always use the latest Angular syntax and features and the new control flow syntax:
+  - Control flow syntax for isf statements:
+     @if (a > b) {
+      <p>{{a}} is greater than {{b}}</p>
+    }
+  - Control flow syntax for loops:
+    @for (item of items; track item.id) {
+      {{ item.name }}
+    }
 4. Angular Material imports (e.g., MatInputModule) when using Material components
 5. Any custom services or components being used
 

@@ -24,5 +24,9 @@
     "src/**/*.ts", // Include all source files
     "tests/**/*.ts" // Include test files
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/angular-developer/angular-developer-files/indexFile"
+  ]
 }
