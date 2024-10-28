@@ -1,3 +1,4 @@
+// base/base.service.ts
 import { ollamaClient } from "../model/ollama/ollama.client";
 import { Terminal } from "@xterm/xterm";
 import { WebContainer } from "@webcontainer/api";
@@ -15,6 +16,8 @@ export abstract class BaseService {
 
   // Abstract properties to be defined in subclasses
   abstract SYSTEM_CONFIG_MESSAGE: string;
+
+  abstract boot(terminal: Terminal, webcontainer: WebContainer): Promise<void>;
 
   /**
    * Initializes the chat context with a default assistant message and sets up the terminal and web container.
@@ -37,6 +40,7 @@ export abstract class BaseService {
       },
     ];
     this.terminal = terminal;
+    console.log(webcontainer);
     this.webcontainer = webcontainer;
     renderAiOutput(content);
   }
@@ -48,8 +52,7 @@ export abstract class BaseService {
    * @returns The assistant's final response after processing any commands.
    */
   async handleChat(prompt: string): Promise<string> {
-    const promptWithTimestamp = `${prompt}`;
-    const { messages } = this.prepareMessages(promptWithTimestamp);
+    const { messages } = this.prepareMessages(prompt);
     const assistantResponse = await this.sendChatRequest(messages);
 
     renderAiOutput(assistantResponse);
@@ -313,6 +316,7 @@ export abstract class BaseService {
     command: ExtractedCommand
   ): Promise<string> {
     if (!this.webcontainer) {
+      console.log(this.webcontainer);
       throw new Error("WebContainer is not initialized.");
     }
 

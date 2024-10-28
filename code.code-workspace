@@ -22,7 +22,7 @@
     "html.format.enable": true,
     "html.format.wrapLineLength": 80,
     "eslint.nodePath": "./node_modules/eslint/lib/api.js",
-    "cSpell.words": ["Ollama"],
+    "cSpell.words": ["Ollama", "webcontainer"],
     "[javascript]": {
       "editor.tabSize": 2,
       "editor.formatOnSave": true,

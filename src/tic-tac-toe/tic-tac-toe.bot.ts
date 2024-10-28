@@ -97,7 +97,7 @@ You have just received the output from executing a command in the runtime enviro
 
 ### Your goal is to win the game while prioritizing defensive play. Follow these guidelines:
 
-If you are provided with a predictive move always use it to place your move to {position: value of predictiveMove}
+You are provided with a predictive move, use this if are unsure of your next move. After you determine your nextMove place your move by {position: value of nextMove}
 
 ### For Tic-Tac-Toe game interactions:
 - You should always be player X, and you should go first unless specifically overridden by the user.

@@ -2,16 +2,19 @@
 import { WebContainer } from "@webcontainer/api";
 import { Terminal } from "@xterm/xterm";
 import { BaseService } from "../base/base.service";
-import { SYSTEM_CONFIG_MESSAGE } from "./web-developer.bot";
+import { SYSTEM_CONFIG_MESSAGE } from "./angular-developer.bot";
 import { renderEditor, setupFileExplorer } from "../render";
-import { files } from "./web-developer.files";
+import { files } from "./angular-developer.files";
 import { startShell, startDevServer } from "../main";
 
-export class WebDeveloperService extends BaseService {
+export class TsDeveloperService extends BaseService {
   SYSTEM_CONFIG_MESSAGE = SYSTEM_CONFIG_MESSAGE;
 
   async boot(terminal: Terminal, webcontainer: WebContainer): Promise<void> {
-    renderEditor(files["index.js"].file.contents);
+    // this order is important
+    await this.initializeChatContext(terminal, webcontainer);
+
+    renderEditor(files["index.ts"].file.contents);
 
     await webcontainer.mount(files);
 
@@ -21,6 +24,6 @@ export class WebDeveloperService extends BaseService {
 
     startDevServer(webcontainer);
 
-    await this.initializeChatContext(terminal, webcontainer);
+    // await webcontainer.spawn("npm", ["run", "watch"]);
   }
 }

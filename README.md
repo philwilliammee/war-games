@@ -107,7 +107,7 @@ now what is something between the last two interfaces we created? Something that
 
 Create a dark, futuristic web interface for a site called "Cyborg Nexus" that explores the fusion of human and machine. The design should feature a black background with neon blue accents, reminiscent of circuit boards and cybernetic enhancements. Include a header with a glowing logo and navigation menu, a hero section with a bold title about embracing cybernetic evolution, and three info cards highlighting aspects of human-machine integration like neural links and enhanced perception. Add an interactive section with a "Cybernetic Thought Generator" that displays random thoughts about the merging of biology and technology when clicked. The overall aesthetic should blend elements of cyberpunk, transhumanism, and introspective themes, creating an atmosphere of both technological advancement and existential contemplation. Use futuristic fonts, subtle circuit-like patterns in the background, and glowing effects to enhance the cyborg theme.
 
-## simplified instructions
+## Web Developer Instructions
 
 create a very simple html page at public/index.html
 
@@ -116,3 +116,16 @@ ok now make it more eleborate import the styles.css and index.js update the html
 ok now add the index.js handler.
 
 Ok now be more creative lets test the capabilities of the your control over the system. Work incrementally let make another incremental change.
+
+## Angular Developer Instructions and example prompts
+
+First run: `npm run watch`
+
+Generate a to do list app. Use angular material elements. With a form at the top of the page and a table at the bottom. When an item is added to the todo list it should be shown in the table. With a checkbox for done also add a trash can to remove items. Pre-populate the table with a few tasks.
+
+Ok lets modify this to create an application management tool. The form fields should be
+string identifier (unique)
+string github name,
+string description,
+string url,
+string status (active, inactive, archived).
