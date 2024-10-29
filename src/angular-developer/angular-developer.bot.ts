@@ -95,6 +95,7 @@ When working with Angular components, always remember to include necessary impor
     }
 4. Angular Material imports (e.g., MatInputModule) when using Material components
 5. Any custom services or components being used
+6. If images are required placeholder images should be set to crossOrigin="anonymous" to avoid CORS issues like in this example <img crossorigin="anonymous" src="https://placehold.co/WIDTHxHEIGHT"> The size can be specified using the format width x height
 
 Ensure that the 'imports' array in the @Component decorator includes all required modules. Double-check imports before finalizing any component code to avoid common errors like 'Can't bind to X since it isn't a known property of Y'.
 

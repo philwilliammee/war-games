@@ -48,6 +48,9 @@ Before running the project, you need to set up environment variables.
     VITE_AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
     VITE_AWS_SESSION_TOKEN=your_aws_session_token
     VITE_AWS_REGION="us-east-1"
+
+    # Game module options `webDeveloper`, `ticTacToe`, or `angularDeveloper`
+    VITE_MODULE='ticTacToe
     ```
 
 ### Explanation of `.env` Variables
@@ -118,8 +121,6 @@ ok now add the index.js handler.
 Ok now be more creative lets test the capabilities of the your control over the system. Work incrementally let make another incremental change.
 
 ## Angular Developer Instructions and example prompts
-
-First run: `npm run watch`
 
 Generate a to do list app. Use angular material elements. With a form at the top of the page and a table at the bottom. When an item is added to the todo list it should be shown in the table. With a checkbox for done also add a trash can to remove items. Pre-populate the table with a few tasks.
 

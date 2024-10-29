@@ -24,8 +24,11 @@
     "zone.js": "~0.14.3"
   },
   "scripts": {
-    "start": "nodemon --watch './' --ext ts,html,scss,js --ignore 'node_modules/**' --delay 1 --exec 'tsx index.ts'",
+    "start": "concurrently \"nodemon --watch './' --ext ts,html,scss,js --ignore 'node_modules/**' --delay 1 --exec 'tsx index.ts'\" \"npm run watch\"",
     "build": "ng build",
     "watch": "ng build --watch --configuration development"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
   }
 }
